@@ -1,12 +1,13 @@
 import { httpGet, httpPost } from '../services/httpClient';
 
-export const ARRIVAL_DIST_KM = 0.03;
-export const WP_MIN_DIST_KM = 0.03;
-export const WP_MIN_TIME_MS = 12000;
-export const DEPARTURE_DIST_KM = 0.08;
+export const ARRIVAL_DIST_KM = 0.05; // 50 metros para tolerar variaciones GPS en zonas urbanas e industriales
+export const WP_MIN_DIST_KM = 0.03;  // 30 metros mínimos para grabar nuevo waypoint
+export const WP_MIN_TIME_MS = 12000; // 12 segundos
+export const DEPARTURE_DIST_KM = 0.08; // 80 metros para confirmar salida del destino
 export const DEPARTURE_CONFIRM_UPDATES = 3;
-export const MIN_GPS_ACCURACY_M = 50;
-export const MIN_MOVE_M = 3;
+export const MIN_GPS_ACCURACY_M = 50; // Margen máximo de imprecisión GPS aceptable
+export const MIN_MOVE_M = 5;          // 5 metros mínimos para registrar desplazamiento real
+export const MIN_SPEED_KMH = 1.0;     // 1.0 km/h umbral mínimo para evitar sumar distancia por deriva en reposo
 
 // Tipos de movimiento que llevan un destino conocido de antemano (se calcula
 // ruta, se detecta llegada, se distingue tramo de ida/vuelta) — a diferencia
@@ -48,7 +49,15 @@ export function shouldRecordWaypoint(lastWp, candidate) {
   if (!lastWp) return true;
   const dist = haversineKm(lastWp.lat, lastWp.lng, candidate.lat, candidate.lng);
   const elapsed = candidate.ts - lastWp.ts;
-  return dist >= WP_MIN_DIST_KM || elapsed >= WP_MIN_TIME_MS;
+
+  // Si avanzó la distancia mínima de waypoint (>= 30m), registrar
+  if (dist >= WP_MIN_DIST_KM) return true;
+  // Keepalive cada 60s si está en el mismo punto para registrar presencia
+  if (elapsed >= 60000) return true;
+  // Si transcurrió el tiempo mínimo (>= 12s) y hubo desplazamiento real (>= 5m)
+  if (elapsed >= WP_MIN_TIME_MS && dist * 1000 >= MIN_MOVE_M) return true;
+
+  return false;
 }
 
 export function formatMoveTimer(ms) {

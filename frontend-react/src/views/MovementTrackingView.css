@@ -306,3 +306,68 @@
   border: 1.5px solid rgba(214, 69, 69, 0.3);
   box-shadow: 0 4px 14px rgba(0, 31, 71, 0.06);
 }
+
+.move-track-arrival {
+  appearance: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(5, 150, 105, 0.4);
+  background: #ECFDF5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #065F46;
+  box-shadow: 0 4px 14px rgba(5, 150, 105, 0.08);
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.move-track-arrival:active {
+  transform: scale(0.98);
+  background: #D1FAE5;
+}
+
+.move-track-arrival:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.move-track-wakelock-tag {
+  color: #059669;
+  font-weight: 700;
+}
+
+.move-track-map-offline {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: linear-gradient(180deg, rgba(241, 243, 246, 0.95) 0%, rgba(230, 233, 240, 0.98) 100%);
+  text-align: center;
+  z-index: 1;
+}
+
+.move-track-map-offline__title {
+  margin-top: 10px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 15px;
+  color: rgb(0, 31, 71);
+}
+
+.move-track-map-offline__sub {
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--color-subtext);
+  max-width: 260px;
+  line-height: 1.4;
+}
+

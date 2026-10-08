@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NEW_DESIGN_ENABLED } from '../config/designFlags';
 import CloseIcon from './icons/CloseIcon';
 import MapPinIcon from './icons/MapPinIcon';
@@ -59,11 +59,14 @@ export default function MovementTrackingView({
   result,
   dismissResult,
   permissionPrompt,
+  markArrival,
+  wakeLockActive,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const traceRef = useRef(null);
   const posMarkerRef = useRef(null);
+  const [mapFailed, setMapFailed] = useState(false);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -98,7 +101,9 @@ export default function MovementTrackingView({
 
       mapRef.current = map;
       setTimeout(() => triggerResize(map), 50);
-    }).catch(() => {});
+    }).catch(() => {
+      if (!cancelled) setMapFailed(true);
+    });
 
     return () => {
       cancelled = true;
@@ -151,9 +156,17 @@ export default function MovementTrackingView({
 
         <div className="move-track-map-wrap">
           <div ref={mapContainerRef} className="move-track-map" />
+          {mapFailed && (
+            <div className="move-track-map-offline">
+              <MaterialIcon name="explore" size={28} color="rgb(0, 31, 71)" />
+              <div className="move-track-map-offline__title">Modo sin mapa (offline)</div>
+              <div className="move-track-map-offline__sub">Tu recorrido y coordenadas GPS se siguen registrando con precisión.</div>
+            </div>
+          )}
           <span className="move-track-gps-pill">
             <span className="move-track-gps-pill__dot" />
             GPS activo
+            {wakeLockActive && <span className="move-track-wakelock-tag">· Pantalla activa</span>}
           </span>
         </div>
 
@@ -189,6 +202,13 @@ export default function MovementTrackingView({
               <div className="move-track-destino__value">{infoValue}</div>
             </div>
           </div>
+
+          {isFijo && leg === 'outbound' && (
+            <button type="button" className="move-track-arrival" onClick={markArrival} disabled={finishing}>
+              <MaterialIcon name="check_circle" size={16} color="#059669" />
+              Marcar llegada al destino
+            </button>
+          )}
 
           <button type="button" className="move-track-finish" onClick={requestFinish} disabled={finishing}>
             <MaterialIcon name="close" size={14} color="#D64545" />
@@ -257,7 +277,16 @@ export default function MovementTrackingView({
         </div>
       </header>
 
-      <div ref={mapContainerRef} className="move-track-map" />
+      <div className="move-track-map-wrap">
+        <div ref={mapContainerRef} className="move-track-map" />
+        {mapFailed && (
+          <div className="move-track-map-offline">
+            <MaterialIcon name="explore" size={28} color="var(--color-primary)" />
+            <div className="move-track-map-offline__title">Modo sin mapa (offline)</div>
+            <div className="move-track-map-offline__sub">Tu recorrido y coordenadas GPS se siguen registrando con precisión.</div>
+          </div>
+        )}
+      </div>
 
       <div className="move-track-body">
         <div className="move-track-stats">
@@ -294,6 +323,13 @@ export default function MovementTrackingView({
               : destino?.address ?? 'Destino fijo'}
           </span>
         </div>
+
+        {isFijo && leg === 'outbound' && (
+          <button type="button" className="move-track-arrival" onClick={markArrival} disabled={finishing}>
+            <MaterialIcon name="check_circle" size={16} color="#059669" />
+            Marcar llegada al destino
+          </button>
+        )}
 
         <button type="button" className="move-track-finish" onClick={requestFinish} disabled={finishing}>
           <CloseIcon size={14} color="var(--color-danger)" />

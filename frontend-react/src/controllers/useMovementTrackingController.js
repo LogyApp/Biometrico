@@ -11,6 +11,7 @@ import {
   DEPARTURE_CONFIRM_UPDATES,
   MIN_GPS_ACCURACY_M,
   MIN_MOVE_M,
+  MIN_SPEED_KMH,
 } from '../models/movementModel';
 import { enqueueOutbox } from '../services/offlineDb';
 import { requestSync } from '../services/syncService';
@@ -64,6 +65,33 @@ export function useMovementTrackingController({ movement, onFinished }) {
   const [finishError, setFinishError] = useState(null);
   const [confirmFinishOpen, setConfirmFinishOpen] = useState(false);
   const [result, setResult] = useState(null);
+  const [wakeLockActive, setWakeLockActive] = useState(false);
+
+  const wakeLockRef = useRef(null);
+
+  const requestWakeLock = async () => {
+    if ('wakeLock' in navigator && !wakeLockRef.current && document.visibilityState === 'visible') {
+      try {
+        const lock = await navigator.wakeLock.request('screen');
+        wakeLockRef.current = lock;
+        setWakeLockActive(true);
+        lock.addEventListener('release', () => {
+          wakeLockRef.current = null;
+          setWakeLockActive(false);
+        });
+      } catch {
+        // Ignorar si el navegador rechaza por ahorro de batería o permisos
+      }
+    }
+  };
+
+  const releaseWakeLock = () => {
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+      setWakeLockActive(false);
+    }
+  };
 
   const waypointsRef = useRef(progress?.waypoints ?? []);
   const lastRecordedRef = useRef(lastProgressWp);
@@ -92,6 +120,22 @@ export function useMovementTrackingController({ movement, onFinished }) {
     });
   }
 
+  function markArrival() {
+    if (arrivedRef.current || legRef.current !== 'outbound') return;
+    arrivedRef.current = true;
+    navigator.vibrate?.([200, 100, 200, 100, 400]);
+    if (!isRoundTrip) {
+      finish(true);
+    } else {
+      dwellStartRef.current = Date.now();
+      legRef.current = 'dwelling';
+      setLeg('dwelling');
+      setDwellStartMs(dwellStartRef.current);
+      departureStreakRef.current = 0;
+      persistProgress();
+    }
+  }
+
   const finish = async (llegoDestino) => {
     if (finishingRef.current) return;
     lastFinishArgRef.current = llegoDestino;
@@ -99,6 +143,7 @@ export function useMovementTrackingController({ movement, onFinished }) {
     setFinishing(true);
     setFinishError(null);
     clearWatch(watchIdRef.current);
+    releaseWakeLock();
 
     try {
       const finishedAt = Date.now();
@@ -182,13 +227,22 @@ export function useMovementTrackingController({ movement, onFinished }) {
         if (accuracyOk) {
           if (lastRaw) {
             const dist = haversineKm(lastRaw.lat, lastRaw.lng, pos.lat, pos.lng);
-            if (dist * 1000 >= MIN_MOVE_M) {
+            const distMeters = dist * 1000;
+
+            const sensorSpeedKmh = pos.speed != null && !isNaN(pos.speed) && pos.speed >= 0 ? +(pos.speed * 3.6) : null;
+            const elapsedSec = Math.max(0.5, (pos.ts - (lastRaw.ts || pos.ts)) / 1000);
+            const calcSpeedKmh = (distMeters / elapsedSec) * 3.6;
+            const effectiveSpeed = sensorSpeedKmh ?? calcSpeedKmh;
+
+            // Filtro de deriva en reposo: solo acumular distancia si supera el mínimo (5m) Y la velocidad no es de reposo (< 1.0 km/h)
+            // O si es un salto claro de desplazamiento mayor a 25 metros
+            if ((distMeters >= MIN_MOVE_M && effectiveSpeed >= MIN_SPEED_KMH) || distMeters >= 25) {
               totalDistRef.current += dist;
               setTotalDistKm(+totalDistRef.current.toFixed(3));
-              lastRawPosRef.current = { lat: pos.lat, lng: pos.lng };
+              lastRawPosRef.current = { lat: pos.lat, lng: pos.lng, ts: pos.ts };
             }
           } else {
-            lastRawPosRef.current = { lat: pos.lat, lng: pos.lng };
+            lastRawPosRef.current = { lat: pos.lat, lng: pos.lng, ts: pos.ts };
           }
         }
 
@@ -276,10 +330,20 @@ export function useMovementTrackingController({ movement, onFinished }) {
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     startWatch();
+    requestWakeLock();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       clearInterval(timer);
       clearWatch(watchIdRef.current);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
     };
   }, []);
 
@@ -293,7 +357,11 @@ export function useMovementTrackingController({ movement, onFinished }) {
 
   function confirmFinish() {
     setConfirmFinishOpen(false);
-    finish(leg !== 'outbound');
+    // Si ya no está en 'outbound', ya había llegado.
+    // Si aún está en 'outbound' pero a <= 80m del destino, se considera llegado con tolerancia.
+    const isNearDestination = isFijo && distToDestKm != null && distToDestKm <= 0.08;
+    const reached = leg !== 'outbound' || isNearDestination;
+    finish(reached);
   }
 
   return {
@@ -320,6 +388,8 @@ export function useMovementTrackingController({ movement, onFinished }) {
     confirmFinish,
     result,
     dismissResult,
+    markArrival,
+    wakeLockActive,
     permissionPrompt: geoPermission.visible
       ? { requesting: geoPermission.requesting, onAllow: geoPermission.allow, onDismiss: geoPermission.dismiss }
       : null,
