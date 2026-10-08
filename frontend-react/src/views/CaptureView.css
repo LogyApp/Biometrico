@@ -1,0 +1,204 @@
+.capture-screen {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #101114;
+}
+
+.capture-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.capture-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 0;
+}
+
+.capture-close {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  border: none;
+  appearance: none;
+  color: #fff;
+}
+
+.capture-badge {
+  font-family: var(--font-heading); font-weight: 700; font-size: 12px; color: rgba(255, 255, 255, 0.85);
+  padding: 6px 13px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.capture-title-row {
+  position: relative;
+  z-index: 2;
+  padding: 14px 18px 0;
+}
+
+.capture-title {
+  font-family: var(--font-heading); font-weight: 800; font-size: 18px; color: #fff;
+}
+
+.capture-guide {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px 16px;
+}
+
+.capture-oval {
+  position: relative;
+  width: min(240px, 58vw);
+  aspect-ratio: 4 / 5;
+  max-height: 100%;
+}
+
+.capture-oval__ring {
+  position: absolute; inset: 0;
+}
+.capture-oval__ring ellipse {
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 3;
+  fill: none;
+  transition: stroke 0.2s;
+}
+.capture-oval--detected .capture-oval__ring ellipse {
+  stroke: var(--color-accent);
+  filter: drop-shadow(0 0 8px var(--color-accent-soft));
+}
+.capture-oval--lost .capture-oval__ring ellipse {
+  stroke: var(--color-danger);
+}
+
+.capture-oval__corner {
+  position: absolute;
+  width: 20px; height: 20px;
+  border-radius: 4px;
+  opacity: 0.9;
+}
+
+.capture-bottom {
+  position: relative;
+  z-index: 2;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 16px 18px 30px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+
+.capture-dots {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+
+.capture-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+}
+.capture-dot--active { background: var(--color-accent); }
+.capture-dot--done { background: var(--color-accent); }
+
+.capture-progress {
+  height: 3px; border-radius: 99px; background: rgba(255, 255, 255, 0.2); overflow: hidden;
+}
+.capture-progress__fill {
+  height: 100%; background: #fff; transition: width 0.3s ease;
+}
+
+.capture-instruction {
+  text-align: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: 17px; color: #fff; letter-spacing: 0.01em;
+}
+
+.capture-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+
+.capture-overlay__card {
+  background: var(--color-sheet-bg);
+  border-radius: 18px;
+  padding: 22px 20px;
+  max-width: 300px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  text-align: center;
+}
+
+.capture-overlay__text {
+  font-family: var(--font-body); font-size: 13.5px; line-height: 1.5; color: var(--color-text);
+}
+
+.capture-spinner {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 3px solid var(--color-input-border);
+  border-top-color: var(--color-link);
+  animation: capture-spin 0.8s linear infinite;
+}
+
+@keyframes capture-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .capture-spinner {
+    animation: none;
+  }
+}
+
+.capture-screen--new-design .capture-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+}
+
+.capture-screen--new-design .capture-overlay__text {
+  font-family: var(--font-heading);
+}
+
+.capture-top-caption {
+  position: absolute;
+  top: calc(70px + env(safe-area-inset-top, 0px));
+  left: 18px; right: 18px;
+  z-index: 2;
+  text-align: center;
+  font-family: var(--font-heading); font-weight: 800; font-size: 16px; letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.capture-screen--new-design .capture-guide {
+  position: absolute;
+  inset: 0;
+  padding: calc(76px + env(safe-area-inset-top, 0px)) 16px 130px;
+  pointer-events: none;
+}
+
+.capture-screen--new-design .capture-bottom {
+  position: absolute;
+  left: 18px; right: 18px; bottom: 28px;
+  background: none;
+  padding: 0;
+  gap: 12px;
+}
+
+.capture-screen--new-design .capture-progress {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.capture-screen--new-design .capture-instruction {
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7), 0 2px 14px rgba(0, 0, 0, 0.5);
+}

@@ -1,0 +1,43 @@
+# ── Secretos — NUNCA al repositorio ──────────────────────────
+.env
+*.env
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.venv*/
+
+# ── Modelos InsightFace (se descargan en Docker build time) ───
+.insightface/
+
+# ── Modelo ONNX de comodidad para dev local (prod lo sirve desde GCS,
+#    ver frontend-react/src/services/localFaceService.js) ────────────
+frontend-react/public/models/*.onnx
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ── Docker ───────────────────────────────────────────────────
+docker-compose.override.yml
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+logs/
+.env.example
+database/
+recursos/
+
+# ── Prototipos y mockups ─────────────────────────────────────────
+frontend-react/Nuevo Prototipo/

@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1B2A5E" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Logyser — Control de Acceso</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <!-- Driver.js — Tour interactivo paso a paso (MIT, open source) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css" />
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="https://unpkg.com/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+<div id="app">
+
+<!-- ═══════════════════════ SPLASH SCREEN ═══════════════════════ -->
+<div id="screen-splash" class="screen active">
+  <div class="splash-logo-wrap">
+    <div class="splash-logo-card">
+      <img src="https://storage.googleapis.com/logyser-recibo-public/logo.png" alt="Logyser" class="splash-logo-img" />
+    </div>
+    <div class="splash-brand">Logyser</div>
+    <div class="splash-accent-line"></div>
+    <div class="splash-tagline">Control de Acceso Biométrico</div>
+  </div>
+  <div class="splash-loader"><div class="splash-loader-bar"></div></div>
+</div>
+
+<!-- ═══════════════════════ SCREEN 1 · ENROLLMENT ═══════════════════════ -->
+<div id="screen-id" class="screen">
+
+  <!-- Header inmersivo rediseñado -->
+  <div class="enroll-hdr">
+    <div class="enroll-hdr-circle c1"></div>
+    <div class="enroll-hdr-circle c2"></div>
+
+    <!-- Franja superior: logo + seguridad -->
+    <div class="enroll-toprow">
+      <img src="https://storage.googleapis.com/logyser-recibo-public/logo.png"
+           alt="Logyser" class="enroll-hdr-logo" />
+      <div class="enroll-secure-pill">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Acceso seguro
+      </div>
+    </div>
+
+    <!-- Identidad visual biométrica -->
+    <div class="enroll-biometric-ring">
+      <!-- Anillo exterior animado -->
+      <div class="ebr-outer"></div>
+      <!-- Anillo con sectores naranja -->
+      <div class="ebr-accent"></div>
+      <!-- Ícono central -->
+      <div class="ebr-center">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+          <path d="M16 3.5c1.5.5 2.5 1.9 2.5 3.5s-1 3-2.5 3.5"/>
+          <path d="M8 3.5C6.5 4 5.5 5.4 5.5 7S6.5 10 8 10.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Headline + descriptor -->
+    <div class="enroll-headline">Control de Acceso</div>
+    <div class="enroll-descriptor">Verifica tu identidad para continuar</div>
+
+    <!-- Barra de progreso lineal (más limpia que los círculos) -->
+    <div class="enroll-progress-bar">
+      <div class="epb-track">
+        <div class="epb-step done-step">
+          <div class="epb-dot active"></div>
+          <span>Verificación</span>
+        </div>
+        <div class="epb-line"></div>
+        <div class="epb-step">
+          <div class="epb-dot"></div>
+          <span>Biométrico</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card flotante con el formulario -->
+  <div class="enroll-card">
+    <div class="enroll-card-accent"></div>
+    <div class="enroll-card-body">
+      <div class="card-title">Verificación de identidad</div>
+      <div class="card-sub">Ingresa los datos de tu documento para continuar</div>
+
+    <div id="id-alert" class="alert alert-danger hidden enroll-alert-wrap"></div>
+
+    <div class="enroll-fields">
+      <div class="fgrp">
+        <label class="flbl" for="input-doctype">Tipo de documento</label>
+        <select id="input-doctype" class="fsel">
+          <option value="CC">Cédula de Ciudadanía</option>
+          <option value="CE">Cédula de Extranjería</option>
+          <option value="TI">Tarjeta de Identidad</option>
+          <option value="PP">Pasaporte</option>
+          <option value="NIT">NIT</option>
+        </select>
+      </div>
+
+      <div class="fgrp">
+        <label class="flbl" for="input-identificacion">Número de documento</label>
+        <input id="input-identificacion" class="fi" type="text"
+          inputmode="numeric" placeholder="Ej: 1234567890"
+          autocomplete="off" maxlength="15" />
+      </div>
+    </div>
+
+    <div class="enroll-divider"></div>
+
+    <label class="terms-row" id="terms-label">
+      <div class="chk-wrap">
+        <input type="checkbox" id="chk-terms" />
+        <div class="chk-visual">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+      </div>
+      <p class="terms-txt">
+        Autorizo el tratamiento de mis datos biométricos conforme a la
+        <button type="button" class="terms-link" id="btn-terms-open">Política de Privacidad</button>
+        de Logyser S.A.S (Ley 1581/2012).
+      </p>
+    </label>
+
+    </div><!-- enroll-card-body -->
+    <div class="enroll-card-footer">
+      <button id="btn-continuar" class="btn btn-navy" disabled>
+        Continuar
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+    </div>
+  </div><!-- enroll-card -->
+
+  <div style="height:20px;flex-shrink:0;"></div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN 2 · NOTICE BIOMÉTRICO (rediseñado) ═══════════════════════ -->
+<div id="screen-notice" class="screen">
+
+  <!-- Fondo degradado completo -->
+  <div class="notice-bg">
+
+    <!-- Toprow: step indicator + nombre -->
+    <div class="notice-toprow">
+      <div class="notice-step-track">
+        <div class="nst-dot done"></div>
+        <div class="nst-line"></div>
+        <div class="nst-dot active"></div>
+      </div>
+      <div class="notice-step-label">Paso 2 · Registro biométrico</div>
+    </div>
+
+    <!-- Saludo personalizado -->
+    <div class="notice-saludo">
+      <div class="notice-saludo-icon" id="notice-avatar">—</div>
+      <div>
+        <div class="notice-saludo-greeting" id="notice-greeting">¡Hola!</div>
+        <div class="notice-saludo-name" id="notice-name">Trabajador</div>
+      </div>
+    </div>
+
+    <!-- Visual central: anillo biométrico profesional -->
+    <div class="notice-scan-ring">
+      <div class="nsr-pulse"></div>
+      <div class="nsr-ring">
+        <!-- SVG del escáner facial -->
+        <svg width="140" height="140" viewBox="0 0 140 140" fill="none">
+          <!-- Anillo exterior con trazo -->
+          <circle cx="70" cy="70" r="64" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+          <!-- Arco naranja decorativo -->
+          <path d="M70 6 A64 64 0 0 1 134 70" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+          <path d="M70 134 A64 64 0 0 1 6 70" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" opacity=".35"/>
+          <!-- Anillo medio -->
+          <circle cx="70" cy="70" r="48" stroke="rgba(255,255,255,.15)" stroke-width="1"/>
+          <!-- Esquinas de targeting -->
+          <path d="M24 46 L24 28 L42 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+          <path d="M116 46 L116 28 L98 28" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+          <path d="M24 94 L24 112 L42 112" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+          <path d="M116 94 L116 112 L98 112" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+          <!-- Silueta facial minimalista / profesional -->
+          <ellipse cx="70" cy="68" rx="26" ry="32" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.5)" stroke-width="1.5"/>
+          <!-- Punto de origen del scan -->
+          <circle cx="70" cy="68" r="2.5" fill="#F15A22" opacity=".8"/>
+          <!-- Líneas de scan -->
+          <line x1="44" y1="60" x2="96" y2="60" stroke="rgba(241,90,34,.25)" stroke-width="1" stroke-dasharray="4 3"/>
+          <line x1="44" y1="68" x2="96" y2="68" stroke="rgba(241,90,34,.15)" stroke-width="1" stroke-dasharray="4 3"/>
+          <line x1="44" y1="76" x2="96" y2="76" stroke="rgba(241,90,34,.08)" stroke-width="1" stroke-dasharray="4 3"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Instrucción principal -->
+    <div class="notice-instruction">Mueve suavemente la cabeza</div>
+    <div class="notice-instruction-sub">El sistema detecta movimiento natural — no necesitas hacer gestos forzados</div>
+
+  </div><!-- /.notice-bg -->
+
+  <!-- Panel blanco inferior: pasos + CTA -->
+  <div class="notice-panel">
+
+    <!-- Pasos en grid 2×2 -->
+    <div class="notice-steps-grid">
+
+      <div class="nsg-step">
+        <div class="nsg-ico" style="background:rgba(241,90,34,.1);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12h8M8 12l4-4M8 12l4 4" style="transform-origin:center;transform:scaleX(-1)"/>
+          </svg>
+        </div>
+        <div>
+          <div class="nsg-title">Gira a la izquierda</div>
+          <div class="nsg-hint">Lentamente, ~45°</div>
+        </div>
+      </div>
+
+      <div class="nsg-step">
+        <div class="nsg-ico" style="background:rgba(241,90,34,.1);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 12h8M16 12l-4-4M16 12l-4 4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="nsg-title">Gira a la derecha</div>
+          <div class="nsg-hint">Mismo movimiento</div>
+        </div>
+      </div>
+
+      <div class="nsg-step">
+        <div class="nsg-ico" style="background:rgba(27,42,94,.08);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B2A5E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4M12 16h.01"/>
+          </svg>
+        </div>
+        <div>
+          <div class="nsg-title">Mira al frente</div>
+          <div class="nsg-hint">Foto frontal final</div>
+        </div>
+      </div>
+
+      <div class="nsg-step">
+        <div class="nsg-ico" style="background:rgba(27,42,94,.08);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B2A5E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+        </div>
+        <div>
+          <div class="nsg-title">ID del dispositivo</div>
+          <div class="nsg-hint">Registrado para control</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CTA principal (navy) -->
+    <button id="btn-notice-start" class="btn btn-primary notice-cta-btn">
+      Iniciar captura biométrica
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+
+    <!-- Banner de seguridad -->
+    <div class="notice-security-banner">
+      <div class="nsb-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="nsb-title">Tus datos están protegidos</div>
+        <div class="nsb-sub">Cifrado TLS · Ley 1581/2012 · El proceso toma ~30 seg</div>
+      </div>
+    </div>
+
+    <!-- Botón "No soy yo" -->
+    <button id="btn-notice-back" class="notice-notme-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <line x1="17" y1="8" x2="23" y2="14"/><line x1="23" y1="8" x2="17" y2="14"/>
+      </svg>
+      ¿No eres tú? — Cambiar identificación
+    </button>
+
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN 3 · CAPTURA (enrollment) ═══════════════════════ -->
+<div id="screen-capture" class="screen">
+  <div class="cam-hdr">
+    <div class="cam-title">Captura biométrica</div>
+    <div class="cam-badge">3 pasos</div>
+  </div>
+
+  <div class="camera-wrap">
+    <video id="video" autoplay muted playsinline></video>
+    <div class="face-oval-wrap">
+      <div class="oval-container" id="oval-c-enroll">
+        <div class="oval-ring" id="face-oval">
+          <div class="oval-scan"></div>
+        </div>
+        <div class="oval-corner oc-tl"></div>
+        <div class="oval-corner oc-tr"></div>
+        <div class="oval-corner oc-bl"></div>
+        <div class="oval-corner oc-br"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cam-bottom">
+    <div class="step-dots" id="step-dots"></div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    <div class="instr-text" id="instr-text">Centra tu rostro en el óvalo</div>
+    <div id="capture-alert" class="cam-alert hidden"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN 4 · ASISTENCIA ═══════════════════════ -->
+<div id="screen-attendance" class="screen">
+
+  <!-- Header LogyTech style -->
+  <div class="main-hdr">
+    <!-- Tip bar — mensajes informativos flotantes en la parte superior del header -->
+    <div class="tip-bar" id="tip-bar">
+      <span class="tip-bar-icon" id="tip-bar-icon"></span>
+      <span class="tip-bar-text" id="tip-bar-text"></span>
+    </div>
+    <div class="main-brand-row">
+      <img src="https://storage.googleapis.com/logyser-recibo-public/logo.png" alt="Logyser" class="hdr-logo-img" />
+      <div style="display:flex;gap:7px;align-items:center;">
+        <!-- Historial de registros -->
+        <button class="btn-logout-hdr" id="btn-history" title="Ver historial">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </button>
+        <!-- Centro de ayuda + guía paso a paso -->
+        <button class="btn-logout-hdr btn-help-trigger" id="btn-help" title="Ayuda y guía">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </button>
+        <!-- Cerrar sesión -->
+        <button class="btn-logout-hdr" id="btn-logout" title="Cerrar sesión">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="main-greeting" id="attend-greeting">buenos días,</div>
+    <div class="main-user-name" id="attend-user-name">Usuario</div>
+    <div class="main-time-row">
+      <span class="main-time" id="attend-clock">00:00</span>
+      <span class="main-time-sep">·</span>
+      <span class="main-date" id="attend-date">—</span>
+    </div>
+  </div>
+
+  <div class="main-body">
+
+    <!-- Face card -->
+    <div class="face-card">
+      <div class="face-preview" id="face-preview-area">
+        <!-- Foto del último registro (oculta hasta que haya registro) -->
+        <img class="face-preview-photo hidden" id="face-last-photo" alt="Último registro" />
+        <!-- Frame overlay — visible solo cuando hay foto -->
+        <div class="face-frame-overlay hidden">
+          <svg class="face-frame-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="42" stroke="rgba(255,255,255,.5)" stroke-width="2"/>
+            <path d="M10 28 L10 10 L28 10" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M92 10 L110 10 L110 28" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M10 92 L10 110 L28 110" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M92 110 L110 110 L110 92" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <!-- Placeholder cuando no hay foto -->
+        <div class="face-placeholder" id="face-placeholder">
+          <div class="face-placeholder-ring">
+            <svg width="130" height="130" viewBox="0 0 140 140" fill="none">
+              <!-- Círculo central (alusión al rostro) -->
+              <circle cx="70" cy="70" r="30" stroke="rgba(255,255,255,.35)" stroke-width="2"/>
+              <!-- Cuatro esquinas de encuadre -->
+              <path d="M22 46 L22 22 L46 22" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+              <path d="M94 22 L118 22 L118 46" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+              <path d="M22 94 L22 118 L46 118" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+              <path d="M118 94 L118 118 L94 118" stroke="#F15A22" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>
+            </svg>
+          </div>
+          <div class="face-placeholder-txt">Presiona el botón para<br>registrar tu asistencia</div>
+        </div>
+      </div>
+
+      <!-- Footer: ubicación + botón mapa -->
+      <div class="face-footer">
+        <div class="location-row">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <circle cx="12" cy="10" r="3"/>
+            <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+          </svg>
+          <span class="location-txt" id="attend-loc-text">Obteniendo ubicación...</span>
+          <span class="location-badge loading" id="attend-loc-badge">GPS</span>
+        </div>
+        <button class="btn-map-open" id="btn-map-open" title="Ver en mapa">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Timer de jornada (aparece tras primer registro) -->
+    <div class="timer-card hidden" id="timer-card">
+      <div class="timer-icon">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.9)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+      </div>
+      <div>
+        <div class="timer-label">Tiempo en jornada</div>
+        <div class="timer-value" id="timer-value">00:00:00</div>
+      </div>
+    </div>
+
+    <!-- Status del día (aparece tras primer registro) -->
+    <div class="status-card hidden" id="status-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="status-title" style="margin-bottom:0;">Registro del día</div>
+        <div class="status-jornada-badge" id="jornada-badge">—</div>
+      </div>
+      <div class="status-rows">
+        <div class="status-row">
+          <span class="status-lbl">Entrada</span>
+          <span class="status-val sv-green" id="s-entry-time">—</span>
+        </div>
+        <div class="status-row">
+          <span class="status-lbl">Salida</span>
+          <span class="status-val sv-red" id="s-exit-time">—</span>
+        </div>
+        <div class="status-row" id="s-address-row" style="display:none;">
+          <span class="status-lbl">Ubicación</span>
+          <span class="status-val" id="s-address" style="font-size:11px;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Acción principal: entry/exit toggle -->
+    <div class="actions-wrap">
+      <button class="btn-main-action entry" id="btn-action-main">
+        Registrar Ingreso
+      </button>
+
+      <!-- Movimiento: solo visible cuando hay ingreso activo -->
+      <button class="btn-move-action hidden" id="btn-movimiento">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 8 16 12 12 16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        Registrar Movimiento
+      </button>
+
+      <button class="btn-manual-link" id="btn-open-manual">
+        Registrar Manualmente
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Modal: Selección de tipo de movimiento -->
+  <div class="bottom-modal-bg" id="modal-move-select">
+    <div class="manual-sheet">
+      <div class="manual-handle"></div>
+      <div class="manual-title">Registrar Movimiento</div>
+      <div class="manual-sub">¿A dónde vas? Elige cómo quieres registrar tu desplazamiento.</div>
+
+      <button class="move-option-card" id="btn-move-destino">
+        <div class="move-option-icon" style="background:#EDE9FE;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="3"/>
+            <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+          </svg>
+        </div>
+        <div class="move-option-info">
+          <div class="move-option-title">Ir a un destino</div>
+          <div class="move-option-sub">Fija el punto exacto en el mapa. Se calcula ruta y tiempos estimados.</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA5BF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+
+      <button class="move-option-card" id="btn-move-libre">
+        <div class="move-option-icon" style="background:#D1FAE5;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/>
+            <line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+        </div>
+        <div class="move-option-info">
+          <div class="move-option-title">Navegación libre</div>
+          <div class="move-option-sub">Sin destino fijo. Se registra el recorrido completo en tiempo real.</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA5BF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+
+      <button class="btn-manual-link" id="btn-move-cancel" style="margin-top:4px;">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal: Mapa -->
+  <div class="bottom-modal-bg" id="map-modal">
+    <div class="map-sheet">
+      <div class="map-sheet-hd">
+        <div class="map-sheet-handle"></div>
+        <div class="map-sheet-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+            <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+          </svg>
+          Ubicación del registro
+        </div>
+        <button class="map-close-btn" id="btn-map-close">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="map-coords-bar" id="map-coords-bar">Cargando coordenadas...</div>
+      <div class="map-frame-wrap">
+        <div class="map-loading" id="map-loading">
+          <div class="map-spin"></div>
+          <div class="map-load-txt">Cargando mapa...</div>
+        </div>
+        <iframe id="map-iframe" title="Ubicación" allowfullscreen="" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Registro manual -->
+  <div class="bottom-modal-bg" id="manual-modal">
+    <div class="manual-sheet">
+      <div class="manual-handle"></div>
+      <div class="manual-title">Registro manual</div>
+      <div class="manual-sub">Se registrará sin verificación biométrica. Indica el motivo.</div>
+
+      <div id="manual-alert" class="alert alert-danger hidden" style="margin-bottom:14px;"></div>
+
+      <div class="manual-fgrp">
+        <label class="manual-lbl" for="manual-tipo">Tipo de evento</label>
+        <!-- Opciones pobladas dinámicamente en JS según el estado de la jornada -->
+        <select id="manual-tipo" class="manual-select"></select>
+      </div>
+
+      <div class="manual-fgrp">
+        <label class="manual-lbl" for="manual-motivo">Motivo</label>
+        <textarea id="manual-motivo" class="manual-textarea" placeholder="Ej: Falla en cámara del dispositivo. Solicito registro manual." maxlength="512"></textarea>
+      </div>
+
+      <button id="btn-manual-submit" class="btn-manual-submit">Confirmar registro</button>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ═══════════════════════ SCREEN 5 · VERIFICACIÓN ═══════════════════════ -->
+<div id="screen-verify" class="screen">
+  <div class="cam-hdr">
+    <button class="cam-back" id="btn-verify-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div class="cam-title">Verificación biométrica</div>
+    <div class="verify-badge"><span id="verify-badge-label">Entrada</span></div>
+  </div>
+
+  <div class="camera-wrap">
+    <video id="video-verify" autoplay muted playsinline></video>
+    <div class="face-oval-wrap">
+      <div class="oval-container" id="oval-c-verify">
+        <div class="oval-ring" id="face-oval-verify">
+          <div class="oval-scan"></div>
+        </div>
+        <div class="oval-corner oc-tl"></div>
+        <div class="oval-corner oc-tr"></div>
+        <div class="oval-corner oc-bl"></div>
+        <div class="oval-corner oc-br"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cam-bottom">
+    <div class="step-dots" id="verify-step-dots"></div>
+    <div class="progress-bar"><div class="progress-fill" id="verify-progress-fill"></div></div>
+    <div class="instr-text" id="verify-instr-text">Parpadea para verificar</div>
+    <div id="verify-alert" class="cam-alert hidden"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN 6 · RESULTADO ═══════════════════════ -->
+<div id="screen-result" class="screen">
+  <div class="hdr" style="padding-bottom:22px;">
+    <div class="hdr-top">
+      <div class="logo">
+        <img src="https://storage.googleapis.com/logyser-recibo-public/logo.png" alt="Logyser" class="hdr-logo-img" />
+      </div>
+    </div>
+  </div>
+
+  <div class="result-body">
+    <div class="result-icon" id="result-icon">
+      <svg id="result-icon-svg" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></svg>
+    </div>
+    <div class="result-title" id="result-title">—</div>
+    <div class="result-name"  id="result-name">—</div>
+
+    <div class="result-card">
+      <div class="result-row">
+        <span class="rr-lbl">Hora</span>
+        <span class="rr-val" id="res-time">—</span>
+      </div>
+      <div class="result-row" id="res-score-row">
+        <span class="rr-lbl">Confianza biométrica</span>
+        <div class="score-wrap">
+          <div class="score-bar"><div class="score-fill" id="score-fill"></div></div>
+          <span class="rr-val" id="res-score">—</span>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-result-ok" class="btn btn-navy">Aceptar</button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN: SELECCIÓN DE DESTINO ═══════════════════════ -->
+<div id="screen-move-dest" class="screen">
+  <!-- Topbar -->
+  <div class="move-topbar">
+    <button class="btn-back-light" id="btn-movedest-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div class="move-topbar-title">Seleccionar destino</div>
+    <div class="move-mode-badge">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="10" r="3"/>
+        <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+      </svg>
+      Destino fijo
+    </div>
+  </div>
+
+  <!-- Barra de búsqueda -->
+  <div class="move-search-bar-wrap">
+    <div class="move-search-bar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9AA5BF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input id="move-search-input" class="move-search-input" type="text" placeholder="Buscar dirección..." autocomplete="off" />
+    </div>
+    <!-- Resultados de búsqueda -->
+    <div class="move-search-results hidden" id="move-search-results"></div>
+  </div>
+
+  <!-- Mapa -->
+  <div class="move-map-wrap">
+    <div id="map-dest-container" class="move-map"></div>
+    <!-- Indicador de toque -->
+    <div class="move-tap-hint" id="move-tap-hint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="10" r="3"/>
+        <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+      </svg>
+      Toca el mapa para fijar el destino
+    </div>
+  </div>
+
+  <!-- Panel inferior -->
+  <div class="move-bottom-panel" id="move-dest-panel">
+    <div class="move-dest-selected hidden" id="move-dest-selected">
+      <div class="move-dest-address-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+          <circle cx="12" cy="10" r="3"/>
+          <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+        </svg>
+        <span class="move-dest-address-txt" id="move-dest-address">—</span>
+      </div>
+      <div class="move-route-info hidden" id="move-route-info">
+        <div class="move-route-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B2A5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span id="move-route-dist">—</span>
+        </div>
+        <div class="move-route-stat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B2A5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span id="move-route-time">—</span>
+        </div>
+      </div>
+    </div>
+    <button class="btn-move-confirm hidden btn btn-navy" id="btn-move-confirm-dest">
+      Iniciar con este destino
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+    <div class="move-bottom-hint">Toca el mapa para seleccionar un punto o busca una dirección</div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN: MOVIMIENTO ACTIVO ═══════════════════════ -->
+<div id="screen-move-active" class="screen">
+  <!-- Topbar con timer -->
+  <div class="move-topbar">
+    <div class="move-active-info">
+      <div class="move-active-mode" id="move-active-mode">Navegación libre</div>
+      <div class="move-active-timer" id="move-active-timer">00:00:00</div>
+    </div>
+    <div class="move-active-dist">
+      <span id="move-active-dist-val">0.00</span>
+      <span class="move-active-dist-unit">km</span>
+    </div>
+  </div>
+
+  <!-- Mapa tracking -->
+  <div class="move-map-wrap">
+    <div id="map-active-container" class="move-map"></div>
+
+    <!-- Badge llegada al destino -->
+    <div class="move-arrival-badge hidden" id="move-arrival-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      ¡Llegaste a tu destino!
+    </div>
+
+    <!-- Badge desvío -->
+    <div class="move-desvio-badge hidden" id="move-desvio-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      Desvío detectado
+    </div>
+  </div>
+
+  <!-- Panel inferior -->
+  <div class="move-bottom-panel">
+    <!-- Stats -->
+    <div class="move-stats-row">
+      <div class="move-stat-box">
+        <div class="move-stat-label">Velocidad</div>
+        <div class="move-stat-value"><span id="move-stat-speed">0</span> <span class="move-stat-unit">km/h</span></div>
+      </div>
+      <div class="move-stat-box" id="move-stat-dest-box">
+        <div class="move-stat-label">Al destino</div>
+        <div class="move-stat-value"><span id="move-stat-dest">—</span> <span class="move-stat-unit">km</span></div>
+      </div>
+      <div class="move-stat-box">
+        <div class="move-stat-label">Puntos GPS</div>
+        <div class="move-stat-value"><span id="move-stat-wps">0</span></div>
+      </div>
+    </div>
+
+    <!-- Destino info (modo destino fijo) -->
+    <div class="move-dest-bar hidden" id="move-active-dest-bar">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="10" r="3"/>
+        <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+      </svg>
+      <span id="move-active-dest-address" class="move-dest-bar-txt">—</span>
+    </div>
+
+    <button class="btn-move-end btn btn-outline" id="btn-move-end">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#DC2626"/>
+        <line x1="15" y1="9" x2="9" y2="15" stroke="white" stroke-width="2" stroke-linecap="round"/>
+        <line x1="9" y1="9" x2="15" y2="15" stroke="white" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Finalizar movimiento
+    </button>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════ SCREEN: HISTORIAL ═══════════════════════ -->
+<div id="screen-history" class="screen">
+
+  <div class="hist-topbar">
+    <button class="btn-back-light" id="btn-history-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div class="hist-topbar-title">Historial de registros</div>
+    <div style="font-size:11px;color:var(--text-dim);font-weight:600;" id="hist-count"></div>
+  </div>
+
+  <!-- ── Pestañas ── -->
+  <div class="hist-tabs-bar">
+    <button class="hist-tab-btn active" data-tab="marcaciones">Marcaciones</button>
+    <button class="hist-tab-btn" data-tab="jornadas">Tiempo laborado</button>
+  </div>
+
+  <!-- ── Filtros — dropdown + date range ── -->
+  <div class="hist-filters">
+    <!-- Fila 1: Tipo de evento -->
+    <div class="hf-row">
+      <div class="hf-field hf-field-full">
+        <label class="hf-label" for="hf-tipo">Tipo de evento</label>
+        <select id="hf-tipo" class="hf-select">
+          <option value="all">Todos los eventos</option>
+          <option value="entrada">Entrada</option>
+          <option value="salida">Salida</option>
+          <option value="movimiento">Movimiento</option>
+          <option value="manual">Registro manual</option>
+        </select>
+      </div>
+    </div>
+    <!-- Fila 2: Rango de fecha -->
+    <div class="hf-row">
+      <div class="hf-field">
+        <label class="hf-label" for="hf-desde">Desde</label>
+        <input type="date" id="hf-desde" class="hf-date" />
+      </div>
+      <div class="hf-field">
+        <label class="hf-label" for="hf-hasta">Hasta</label>
+        <input type="date" id="hf-hasta" class="hf-date" />
+      </div>
+    </div>
+    <!-- Atajos de período -->
+    <div class="hf-shortcuts">
+      <button class="hf-sc active" data-period="all">Todo</button>
+      <button class="hf-sc" data-period="today">Hoy</button>
+      <button class="hf-sc" data-period="week">Esta semana</button>
+      <button class="hf-sc" data-period="month">Este mes</button>
+    </div>
+    <div class="hist-result-count" id="hist-filter-info"></div>
+  </div>
+
+  <div class="hist-body" id="hist-list">
+    <div class="hist-empty" id="hist-loading">
+      <div class="spin-ring" style="border-top-color:var(--navy);border-color:var(--border);"></div>
+      <span>Cargando registros...</span>
+    </div>
+  </div>
+
+  <div class="hist-body hidden" id="jornadas-list"></div>
+
+</div>
+
+<!-- ═══════════════════════ SCREEN: MAPA COMPLETO (historial) ═══════════════════════ -->
+<div id="screen-map-view" class="screen">
+
+  <!-- Topbar superpuesto sobre el mapa -->
+  <div class="map-view-bar" id="map-view-bar">
+    <button class="btn-back-light" id="btn-map-view-back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+    </button>
+    <div class="map-view-title" id="map-view-title">Mapa</div>
+  </div>
+
+  <!-- Stats (sólo en recorridos de movimiento) -->
+  <div class="map-view-stats-bar hidden" id="map-view-stats"></div>
+
+  <!-- Mapa ocupa la pantalla completa — Leaflet siempre tiene dimensiones reales -->
+  <div id="map-view-container"></div>
+
+  <!-- Cards de detalle de trayecto (punto inicio / destino / fin) -->
+  <div id="map-view-cards" class="map-cards-panel hidden"></div>
+
+</div>
+
+
+<!-- ═══════════════════════ PANEL: CENTRO DE AYUDA ═══════════════════════ -->
+<div class="bottom-modal-bg" id="help-modal">
+  <div class="help-sheet">
+    <div class="manual-handle"></div>
+
+    <!-- Encabezado -->
+    <div class="help-hdr">
+      <div class="help-hdr-logo">
+        <img src="https://storage.googleapis.com/logyser-recibo-public/logo.png"
+             alt="Logyser" class="help-logo-img" />
+      </div>
+      <div>
+        <div class="help-hdr-title">Centro de Ayuda</div>
+        <div class="help-hdr-sub">Control de Acceso Biométrico · Logyser S.A.S</div>
+      </div>
+      <button class="modal-close-btn" id="btn-help-close">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Guía paso a paso — CTA principal -->
+    <button id="btn-start-tour" class="help-tour-btn">
+      <div class="help-tour-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12 8 16 12 12 16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+      </div>
+      <div>
+        <div class="help-tour-label">Ver guía paso a paso</div>
+        <div class="help-tour-sub">Aprende a usar cada función en 8 pasos</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+
+    <!-- Tips de funciones -->
+    <div class="help-section-title">¿Qué puedes hacer?</div>
+
+    <div class="help-features">
+      <div class="help-feat">
+        <div class="hf-icon" style="background:#D1FAE5;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+        </div>
+        <div class="hf-body">
+          <div class="hf-title">Registrar Ingreso / Salida</div>
+          <div class="hf-desc">Verifica tu identidad moviendo la cabeza frente a la cámara.</div>
+        </div>
+      </div>
+
+      <div class="help-feat">
+        <div class="hf-icon" style="background:#EDE9FE;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="10" r="3"/>
+            <path d="M12 2a8 8 0 0 0-8 8c0 5.4 7.05 11.5 7.35 11.76a1 1 0 0 0 1.3 0C12.95 21.5 20 15.4 20 10a8 8 0 0 0-8-8z"/>
+          </svg>
+        </div>
+        <div class="hf-body">
+          <div class="hf-title">Registrar Movimiento</div>
+          <div class="hf-desc">Sal temporalmente (cajero, diligencias). El sistema registra tu recorrido GPS.</div>
+        </div>
+      </div>
+
+      <div class="help-feat">
+        <div class="hf-icon" style="background:#FEF3C7;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </div>
+        <div class="hf-body">
+          <div class="hf-title">Registro Manual</div>
+          <div class="hf-desc">Si la cámara falla, registra manualmente con una razón escrita.</div>
+        </div>
+      </div>
+
+      <div class="help-feat">
+        <div class="hf-icon" style="background:#EEF2FF;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B2A5E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="hf-body">
+          <div class="hf-title">Historial de Registros</div>
+          <div class="hf-desc">Consulta todas tus marcaciones y recorridos anteriores con mapa.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nota de seguridad -->
+    <div class="help-note">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
+      <span>Todos los registros son auditables. Tu biométrico está cifrado y protegido según la Ley 1581 de 2012.</span>
+    </div>
+
+    <div class="help-version">v2.0 · Logyser S.A.S</div>
+  </div>
+</div>
+
+<!-- OVERLAY: Procesando / Error de conexión -->
+<div id="overlay-processing" class="hidden">
+  <div class="spin-ring" id="overlay-spin"></div>
+  <svg id="overlay-conn-icon" class="hidden" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="1" y1="1" x2="23" y2="23"/>
+    <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+    <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+    <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+    <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+    <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+    <line x1="12" y1="20" x2="12.01" y2="20"/>
+  </svg>
+  <div class="proc-txt" id="processing-text">Procesando...</div>
+  <div class="proc-sub-txt hidden" id="overlay-sub-txt">Verifica tu conexión a internet e intenta de nuevo.</div>
+  <button class="proc-retry-btn hidden" id="overlay-retry-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+    Reintentar
+  </button>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     MODAL: Éxito estilo bancario (transacción)
+══════════════════════════════════════════ -->
+<div id="txn-modal" class="txn-modal-bg hidden">
+  <div class="txn-modal-card">
+    <!-- Ícono animado -->
+    <div class="txn-icon-wrap">
+      <svg class="txn-svg" viewBox="0 0 80 80" fill="none">
+        <circle class="txn-ring" cx="40" cy="40" r="34" stroke="#059669" stroke-width="3"/>
+        <polyline class="txn-check" points="22,40 34,52 58,26" stroke="#059669" stroke-width="4"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="txn-title"    id="txn-title">¡Listo!</div>
+    <div class="txn-subtitle" id="txn-subtitle"></div>
+    <div class="txn-details"  id="txn-details"></div>
+    <button class="btn btn-navy txn-btn" id="txn-ok">Aceptar <span id="txn-countdown" class="txn-countdown-badge"></span></button>
+  </div>
+</div>
+
+<!-- MODAL: Confirmación custom (reemplaza confirm()) -->
+<div id="confirm-modal" class="confirm-bg hidden">
+  <div class="confirm-card">
+    <div class="confirm-icon-wrap">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <div class="confirm-title" id="confirm-title">¿Confirmar?</div>
+    <div class="confirm-msg"   id="confirm-msg"></div>
+    <div class="confirm-btns">
+      <button class="btn btn-outline" id="confirm-no">Cancelar</button>
+      <button class="btn btn-navy"    id="confirm-yes">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Política de privacidad -->
+<div id="modal-terms" class="modal-bg hidden">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-hd">
+      <div class="modal-hd-title">Política de Privacidad — Logyser S.A.S</div>
+      <button class="modal-close" id="btn-terms-close">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="terms-sec">
+        <div class="terms-sec-title">Autorización de tratamiento de datos personales y biométricos</div>
+        <p>En cumplimiento de la Ley Estatutaria 1581 de 2012 "Por la cual se dictan disposiciones generales para la protección de datos personales", el Decreto 1377 de 2013, el Decreto 1074 de 2015 y demás normas concordantes, <strong>Logyser S.A.S</strong> (en adelante "la Empresa"), identificada con NIT, con domicilio en Colombia, actúa como <strong>responsable del tratamiento</strong> de sus datos personales y biométricos.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">1. Datos objeto de tratamiento</div>
+        <p>La Empresa recopila y trata las siguientes categorías de datos: <br/>
+        (a) <strong>Datos de identificación:</strong> número de documento de identidad, tipo de documento, nombre completo y fecha de expedición del documento.<br/>
+        (b) <strong>Datos biométricos (datos sensibles):</strong> imagen facial capturada mediante cámara, de la cual se extraen vectores matemáticos de 512 dimensiones (embeddings ArcFace) para verificación de identidad. Las imágenes originales no se almacenan permanentemente.<br/>
+        (c) <strong>Datos de ubicación:</strong> coordenadas GPS al momento de cada evento de acceso o registro de asistencia.<br/>
+        (d) <strong>Datos técnicos del dispositivo:</strong> dirección IP, identificador único del dispositivo (huella digital técnica) y agente de navegador.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">2. Finalidades del tratamiento — Art. 13, Ley 1581/2012</div>
+        <p>(a) Verificar la identidad del titular en cada evento de acceso físico a instalaciones de la Empresa o de sus clientes.<br/>
+        (b) Registrar y auditar eventos de asistencia laboral (entradas, salidas y novedades).<br/>
+        (c) Prevenir el fraude, la suplantación de identidad y el acceso no autorizado a instalaciones.<br/>
+        (d) Cumplir obligaciones legales en materia de control de acceso, seguridad laboral y registros de nómina.<br/>
+        (e) Generar reportes internos de gestión del talento humano.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">3. Base legal del tratamiento de datos sensibles — Art. 6 y 7, Ley 1581/2012</div>
+        <p>De conformidad con el artículo 6 de la Ley 1581 de 2012, el tratamiento de datos sensibles —entre ellos los datos biométricos— está prohibido salvo cuando el titular haya otorgado su <strong>autorización explícita</strong>. El presente documento constituye dicha autorización, la cual es: (i) libre, es decir, no condicionada ni forzada; (ii) previa al inicio del tratamiento; (iii) expresa e informada sobre la finalidad y el alcance del mismo. <br/><br/>
+        El titular podrá <strong>revocar esta autorización</strong> en cualquier momento mediante comunicación escrita dirigida al área de Gestión Humana de Logyser S.A.S. La revocación impedirá el uso del sistema de control de acceso biométrico, sin perjuicio de los registros históricos que deban conservarse por mandato legal.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">4. Medidas de seguridad</div>
+        <p>La Empresa implementa medidas técnicas, administrativas y organizativas para proteger los datos, incluyendo: cifrado de datos en tránsito (TLS/HTTPS), control de acceso restringido a las bases de datos, almacenamiento de vectores matemáticos en lugar de imágenes originales (los vectores biométricos no permiten reconstruir la imagen facial), y auditorías periódicas de seguridad.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">5. Plazo de conservación</div>
+        <p>Los datos biométricos y registros de acceso se conservarán durante la vigencia de la relación laboral o contractual y por un período adicional de <strong>cinco (5) años</strong> para efectos de auditoría y cumplimiento normativo, o el tiempo que exija la legislación aplicable. Transcurrido dicho plazo, los datos serán eliminados de forma segura.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">6. Derechos del titular — Art. 8, Ley 1581/2012</div>
+        <p>Como titular de los datos, usted tiene derecho a:<br/>
+        (a) <strong>Conocer</strong> los datos personales que la Empresa tiene sobre usted.<br/>
+        (b) <strong>Actualizar y rectificar</strong> sus datos cuando sean inexactos o incompletos.<br/>
+        (c) <strong>Solicitar prueba</strong> de la autorización otorgada.<br/>
+        (d) <strong>Ser informado</strong> sobre el uso dado a sus datos personales.<br/>
+        (e) <strong>Revocar</strong> la autorización o solicitar la supresión de sus datos cuando no se respeten los principios, derechos y garantías constitucionales y legales.<br/>
+        (f) <strong>Acceder gratuitamente</strong> a sus datos personales tratados.<br/>
+        (g) <strong>Presentar quejas</strong> ante la Superintendencia de Industria y Comercio (SIC) por infracciones a la normativa de protección de datos.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">7. Transferencia y transmisión internacional de datos — Cap. VII, Ley 1581/2012</div>
+        <p>Los datos personales y biométricos <strong>no serán cedidos, vendidos ni transferidos</strong> a terceros sin autorización previa del titular, salvo: (i) cuando exista obligación legal o requerimiento de autoridad judicial o administrativa competente; (ii) cuando se trate de proveedores de servicios tecnológicos que actúen como encargados del tratamiento bajo contrato con cláusulas de confidencialidad y seguridad equivalentes a los estándares de la Ley 1581/2012.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">8. Geolocalización</div>
+        <p>La ubicación GPS se captura exclusivamente en el momento de cada registro de acceso o asistencia, con el único propósito de validar la localización del evento para fines de auditoría interna. Los datos de ubicación no se comparten con terceros ajenos a la operación de Logyser S.A.S y se almacenan de forma conjunta con el registro de asistencia.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">9. Huella digital del dispositivo</div>
+        <p>Se genera un identificador técnico único del dispositivo con base en características del navegador y del hardware (sin acceder a datos privados del sistema operativo). Este identificador se usa para asociar los registros biométricos a un dispositivo concreto, reforzando la seguridad del sistema. No identifica al titular de forma independiente.</p>
+      </div>
+      <div class="terms-sec">
+        <div class="terms-sec-title">10. Ejercicio de derechos — Contacto</div>
+        <p>Para ejercer cualquiera de sus derechos como titular, presentar consultas o reclamos relacionados con el tratamiento de sus datos personales, comuníquese con el <strong>Área de Gestión Humana o de Tecnología de Logyser S.A.S</strong> a través de los canales institucionales definidos por la Empresa. La Empresa dará respuesta dentro de los términos establecidos en los artículos 14 y 15 de la Ley 1581 de 2012 (10 días hábiles para consultas, 15 días hábiles para reclamos).</p>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="btn-terms-accept" class="btn btn-navy">Entendido — Acepto</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ── PWA: banner de instalación Android (Chrome) ─────────── -->
+<div id="pwa-banner" class="pwa-banner hidden">
+  <div class="pwa-banner-icon">
+    <img src="/icons/icon-192.png" alt="Logyser" />
+  </div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">Instalar aplicación</div>
+    <div class="pwa-banner-sub">Acceso rápido desde tu pantalla de inicio</div>
+  </div>
+  <button class="pwa-banner-btn" id="btn-pwa-install">Instalar</button>
+  <button class="pwa-banner-close" id="btn-pwa-dismiss">✕</button>
+</div>
+
+<!-- ── PWA: modal de instrucciones iOS (Safari) ─────────────── -->
+<div id="pwa-ios-modal" class="pwa-ios-bg hidden">
+  <div class="pwa-ios-card">
+    <button class="pwa-ios-close" id="btn-pwa-ios-close">✕</button>
+    <div class="pwa-ios-logo">
+      <img src="/icons/icon-192.png" alt="Logyser" />
+    </div>
+    <div class="pwa-ios-title">Instalar Logyser</div>
+    <div class="pwa-ios-sub">Añade la app a tu pantalla de inicio para acceso con un toque</div>
+    <div class="pwa-ios-steps">
+      <div class="pwa-ios-step">
+        <div class="pwa-ios-num">1</div>
+        <div>Toca el botón
+          <strong>Compartir</strong>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-left:3px">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          en la barra de Safari
+        </div>
+      </div>
+      <div class="pwa-ios-step">
+        <div class="pwa-ios-num">2</div>
+        <div>Desplázate y toca <strong>"Agregar a pantalla de inicio"</strong></div>
+      </div>
+      <div class="pwa-ios-step">
+        <div class="pwa-ios-num">3</div>
+        <div>Toca <strong>Agregar</strong> — ¡listo!</div>
+      </div>
+    </div>
+    <div class="pwa-ios-note">
+      ⚠️ Solo disponible en <strong>Safari</strong>. Si usas Chrome en iPhone, abre el link en Safari primero.
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

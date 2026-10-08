@@ -1,0 +1,156 @@
+@import './tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+html {
+  height: 100%;
+  background: #edf0f7;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+  /* env(safe-area-inset-bottom) representa la geometría física del
+     dispositivo — iOS NO la reduce cuando el teclado cubre el home
+     indicator. keyboard-open la colapsa (ver services/viewportFix.js)
+     para que nada reserve ese espacio de más mientras el teclado está
+     abierto. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html.keyboard-open {
+  --safe-bottom: 0px;
+}
+
+/* iOS pinta el área segura (home indicator) con el fondo de <html> — se
+   sincroniza con useHtmlTheme() según la pantalla activa (ver App.jsx). */
+html[data-theme="dark"] {
+  background: #101114;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-text);
+  background: #edf0f7;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+
+#root {
+  width: 100%;
+  max-width: 430px;
+  /* height fijo es CRÍTICO: sin él, #root crece con el contenido y los
+     overflow-y:auto internos nunca activan el scroll. --app-vh la fija
+     initViewportFix() (ver services/viewportFix.js) — en iOS, 100dvh y
+     env(safe-area-inset-*) pueden quedar obsoletos tras volver de segundo
+     plano o abrir el teclado; --app-vh se recalcula justo en esos eventos. */
+  height: 100vh;
+  height: 100dvh;
+  height: var(--app-vh, 100dvh);
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: var(--app-vh, 100dvh);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--color-sheet-bg);
+  overscroll-behavior: contain;
+  overflow: hidden;
+}
+
+@media (min-width: 480px) {
+  body { align-items: center; padding: 28px 0; }
+  #root {
+    min-height: auto;
+    height: calc(100vh - 56px);
+    height: calc(100dvh - 56px);
+    max-height: 860px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(20, 37, 89, 0.18), 0 0 0 1px rgba(20, 37, 89, 0.06);
+  }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select {
+  font-family: inherit;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+.pulsing-marker {
+  position: relative;
+  display: block;
+  width: var(--marker-size, 18px);
+  height: var(--marker-size, 18px);
+}
+
+.pulsing-marker__dot {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--marker-size, 18px);
+  height: var(--marker-size, 18px);
+  border-radius: 50%;
+  background: var(--marker-color);
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 10px;
+  color: #fff;
+}
+
+.pulsing-marker__ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--marker-size, 18px);
+  height: var(--marker-size, 18px);
+  border-radius: 50%;
+  background: var(--marker-color);
+  transform: translate(-50%, -50%) scale(1);
+  animation: pulsing-marker-ring 1.8s ease-out infinite;
+}
+
+@keyframes pulsing-marker-ring {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.55; }
+  100% { transform: translate(-50%, -50%) scale(3.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulsing-marker__ring { animation: none; opacity: 0.3; }
+}

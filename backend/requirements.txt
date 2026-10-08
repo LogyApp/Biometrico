@@ -1,0 +1,16 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.12
+pydantic-settings==2.6.1
+sqlalchemy[asyncio]==2.0.36
+aiomysql==0.2.0
+PyMySQL==1.1.1
+insightface==0.7.3
+onnxruntime==1.20.1
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+pillow==11.0.0
+aiofiles==24.1.0
+pywebpush>=1.14,<2.0
+slowapi==0.1.9
+google-cloud-storage==2.18.2

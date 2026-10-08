@@ -1,0 +1,37 @@
+:root {
+  --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  --color-header-gradient: linear-gradient(160deg, #142559 0%, #1f3a75 55%, #2a4a8f 100%);
+  --color-glow-1: rgba(90, 140, 255, 0.35);
+  --color-glow-2: rgba(62, 217, 192, 0.22);
+  --color-accent: #22C55E;
+  --color-accent-soft: rgba(34, 197, 94, 0.14);
+  --color-badge-bg: rgba(255, 255, 255, 0.12);
+  --color-badge-border: rgba(255, 255, 255, 0.22);
+  --color-icon-stroke: #EAF1FF;
+  --color-ring: rgba(255, 255, 255, 0.55);
+  --color-title: #FFFFFF;
+  --color-subtitle: rgba(255, 255, 255, 0.68);
+  --color-step-muted: rgba(255, 255, 255, 0.4);
+  --color-ink-navy: #0f1b3d;
+
+  --color-sheet-bg: #FAFAF8;
+  --radius-sheet: 28px;
+  --color-input-bg: #F4F4F1;
+  --color-input-border: #E7E6E1;
+  --color-card-bg: #F4F4F1;
+  --color-card-border: #E7E6E1;
+  --color-label: #8A8A82;
+  --color-text: #15181F;
+  --color-subtext: #6E7180;
+
+  --gradient-btn-active: linear-gradient(135deg, #1f3a75, #2a4a8f);
+  --color-btn-disabled-bg: #D6DBE8;
+  --color-btn-disabled-text: #9AA3BE;
+  --color-link: #2a4a8f;
+
+  --color-danger: #D64545;
+  --color-success: #1E9E5A;
+  --color-warning: #D97706;
+}

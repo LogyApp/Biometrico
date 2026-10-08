@@ -1,0 +1,19 @@
+.brand-mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark__logo {
+  width: 36px; height: auto; flex-shrink: 0;
+  filter: brightness(0) invert(1);
+}
+
+.brand-mark__name {
+  font-family: var(--font-heading); font-weight: 800; font-size: 15.5px;
+  color: var(--color-title); letter-spacing: 0.01em;
+}
+
+.brand-mark__tagline {
+  font-family: var(--font-body); font-size: 9.5px; color: var(--color-subtitle);
+}

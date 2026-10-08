@@ -1,0 +1,9 @@
+{
+  "version": "1.0.0",
+  "sizeMb": 18,
+  "notes": [
+    { "icon": "shield", "title": "Reconocimiento facial más preciso", "desc": "Menor tiempo de respuesta en cada verificación" },
+    { "icon": "lock", "title": "Seguridad reforzada", "desc": "Cifrado actualizado para tus datos biométricos" },
+    { "icon": "refresh", "title": "Corrección de errores", "desc": "Estabilidad general en el registro de movimientos" }
+  ]
+}

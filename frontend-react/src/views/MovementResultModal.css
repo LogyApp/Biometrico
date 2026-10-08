@@ -1,0 +1,26 @@
+.movement-result__stats {
+  width: 100%;
+  background: rgb(241, 243, 246);
+  border-radius: 13px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.movement-result__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-bottom: 1px solid #E7E9F0;
+}
+.movement-result__row:last-child {
+  border-bottom: none;
+}
+
+.movement-result__row-label {
+  font-family: var(--font-heading); font-weight: 500; font-size: 12px; color: var(--color-subtext);
+}
+
+.movement-result__row-value {
+  font-family: var(--font-heading); font-weight: 700; font-size: 13px; color: rgb(0, 31, 71);
+}

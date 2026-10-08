@@ -1,0 +1,8 @@
+services:
+  api:
+    build: .
+    ports:
+      - "5173:8080"
+    environment:
+      DATABASE_URL: mysql+aiomysql://claude_user:defgo244r*@34.162.109.112:3307/Desplegables
+    restart: unless-stopped

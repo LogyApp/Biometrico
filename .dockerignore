@@ -1,0 +1,8 @@
+.git
+.gitignore
+*.md
+docker-compose.yml
+facial-pwa-main.rar
+frontend-react/node_modules
+frontend-react/Nuevo Prototipo
+frontend/

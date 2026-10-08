@@ -1,0 +1,120 @@
+.driver-popover {
+  font-family: var(--font-body) !important;
+  background-color: #fff !important;
+  color: var(--color-text) !important;
+  border-radius: 18px !important;
+  border: 1px solid var(--color-card-border) !important;
+  box-shadow: 0 14px 40px rgba(15, 27, 61, 0.22), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  padding: 18px !important;
+  max-width: 300px !important;
+}
+
+.driver-popover-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-family: var(--font-heading) !important;
+  font-size: 14.5px !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.1px !important;
+  color: var(--color-text) !important;
+  margin-bottom: 8px !important;
+}
+
+.tour-step-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  flex-shrink: 0;
+  background: var(--color-header-gradient);
+}
+.tour-step-icon svg {
+  display: block;
+}
+
+.tour-step-title-text {
+  min-width: 0;
+}
+
+.driver-popover-description {
+  font-family: var(--font-body) !important;
+  font-size: 13px !important;
+  color: var(--color-subtext) !important;
+  line-height: 1.6 !important;
+}
+.driver-popover-description strong {
+  color: var(--color-text) !important;
+}
+
+.driver-popover-close-btn {
+  color: var(--color-label) !important;
+  font-size: 20px !important;
+}
+.driver-popover-close-btn:hover,
+.driver-popover-close-btn:focus {
+  color: var(--color-text) !important;
+}
+
+.driver-popover-footer {
+  margin-top: 18px !important;
+}
+
+.driver-popover-progress-text {
+  font-family: var(--font-body) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.03em;
+  color: var(--color-label) !important;
+}
+
+.driver-popover-navigation-btns {
+  gap: 8px !important;
+}
+
+.driver-popover-footer-btn {
+  font-family: var(--font-body) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  border-radius: 10px !important;
+  padding: 9px 16px !important;
+  transition: opacity 0.15s !important;
+}
+.driver-popover-footer-btn:hover,
+.driver-popover-footer-btn:focus {
+  opacity: 0.85 !important;
+}
+
+.driver-popover-next-btn,
+.driver-popover-done-btn {
+  background: var(--gradient-btn-active) !important;
+  border: none !important;
+  color: #fff !important;
+  text-shadow: none !important;
+}
+
+.driver-popover-prev-btn {
+  background: #fff !important;
+  border: 1px solid var(--color-input-border) !important;
+  color: var(--color-subtext) !important;
+  text-shadow: none !important;
+}
+
+.driver-popover-arrow-side-top.driver-popover-arrow {
+  border-top-color: #fff !important;
+}
+.driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-bottom-color: #fff !important;
+}
+.driver-popover-arrow-side-left.driver-popover-arrow {
+  border-left-color: #fff !important;
+}
+.driver-popover-arrow-side-right.driver-popover-arrow {
+  border-right-color: #fff !important;
+}
+
+.driver-overlay {
+  opacity: 0.6 !important;
+}
