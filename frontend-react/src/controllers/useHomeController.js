@@ -14,7 +14,7 @@ import { getDeviceFingerprint } from '../models/deviceFingerprint';
 import { requestSync } from '../services/syncService';
 import { usePermissionPrompt } from './usePermissionPrompt';
 import { loadMovementSession } from '../models/movementSessionStorage';
-import { saveAttendanceCache, getAttendanceCache, saveHistoryCache, getHistoryCache } from '../services/offlineDb';
+import { isOfflineReady, saveAttendanceCache, getAttendanceCache, saveHistoryCache, getHistoryCache } from '../services/offlineDb';
 import { isConnectivityFailure } from '../services/connectivity';
 import { getAvatarUrl } from '../services/avatarService';
 import { formatMoveTimer } from '../models/movementModel';
@@ -91,6 +91,7 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
   const [noveltyText, setNoveltyText] = useState('');
   const [noveltySubmitting, setNoveltySubmitting] = useState(false);
   const [noveltyResult, setNoveltyResult] = useState(null);
+  const [offlineReady, setOfflineReady] = useState(true);
 
   const mountedRef = useRef(true);
   const attendanceStatusRef = useRef(attendanceStatus);
@@ -420,6 +421,14 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
     };
   }, [identificacion]);
 
+  useEffect(() => {
+    isOfflineReady()
+      .then((ready) => {
+        if (mountedRef.current) setOfflineReady(ready);
+      })
+      .catch(() => {});
+  }, []);
+
   function dismissSessionBlock() {
     setSessionBlocked(false);
     onLogout();
@@ -741,6 +750,7 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
     failedSyncCount,
     retryFailedSync,
     retryingFailedSync,
+    offlineReady,
     workTimer: attendanceStatus === ATTENDANCE_STATUS.ACTIVE ? formatMoveTimer(workElapsedMs) : null,
     elapsedDisplayMs: attendanceStatus === ATTENDANCE_STATUS.ACTIVE
       ? workElapsedMs

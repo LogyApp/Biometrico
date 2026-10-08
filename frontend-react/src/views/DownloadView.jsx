@@ -21,7 +21,7 @@ function ResourceRow({ label, done }) {
   );
 }
 
-export default function DownloadView({ resources, overallPct, downloadedMb, totalMb, remainingLabel, error, retry }) {
+export default function DownloadView({ resources, overallPct, downloadedMb, totalMb, remainingLabel, error, retry, onCancel }) {
   const dashOffset = RING_CIRCUMFERENCE * (1 - overallPct / 100);
   const screenClass = `download-screen${NEW_DESIGN_ENABLED ? ' download-screen--new-design' : ''}`;
 
@@ -42,6 +42,23 @@ export default function DownloadView({ resources, overallPct, downloadedMb, tota
             <div className="download-error__title">No pudimos preparar tu acceso sin conexión</div>
             <p className="download-error__text">{error}</p>
             <button type="button" className="download-error__retry" onClick={retry}>Reintentar</button>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                style={{
+                  marginTop: 10,
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.85)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
+                }}
+              >
+                Volver al inicio
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -102,6 +119,23 @@ export default function DownloadView({ resources, overallPct, downloadedMb, tota
           <div className="download-footer__sub">
             Estamos descargando los recursos necesarios<br />para el funcionamiento de la app
           </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.75)',
+                fontSize: 12.5,
+                cursor: 'pointer',
+                marginTop: 12,
+                textDecoration: 'underline',
+              }}
+            >
+              Hacerlo más tarde (volver al inicio)
+            </button>
+          )}
         </div>
       </div>
     </div>

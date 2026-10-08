@@ -307,6 +307,8 @@ export default function HomeView({
   failedSyncCount,
   retryFailedSync,
   retryingFailedSync,
+  offlineReady = true,
+  onStartDownload,
 }) {
   if (sessionBlocked) {
     return (
@@ -523,6 +525,25 @@ export default function HomeView({
               >
                 {retryingFailedSync ? 'Reintentando…' : 'Reintentar'}
               </button>
+            </div>
+          )}
+
+          {!offlineReady && (
+            <div className="home-offline-banner">
+              <div className="home-offline-banner__icon">
+                <MaterialIcon name="wifi_off" size={20} color="#0D7A68" />
+              </div>
+              <div className="home-offline-banner__body">
+                <div className="home-offline-banner__title">Modo sin conexión disponible</div>
+                <div className="home-offline-banner__desc">
+                  Descarga el paquete biométrico para registrarte en zonas sin internet.
+                </div>
+              </div>
+              {onStartDownload && (
+                <button type="button" className="home-offline-banner__btn" onClick={onStartDownload}>
+                  Descargar
+                </button>
+              )}
             </div>
           )}
 

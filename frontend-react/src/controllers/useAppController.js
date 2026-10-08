@@ -10,10 +10,17 @@ export function useAppController() {
     setStep('access');
   }
 
-  async function goHomeOrPrepareOffline(nextWorker) {
+  function goHomeOrPrepareOffline(nextWorker) {
     if (nextWorker) setWorker(nextWorker);
-    const ready = await isOfflineReady();
-    setStep(ready ? 'home' : 'download');
+    setStep('home');
+  }
+
+  function handleStartDownload() {
+    setStep('download');
+  }
+
+  function handleCancelDownload() {
+    setStep('home');
   }
 
   function handleVerified(nextWorker) {
@@ -69,6 +76,8 @@ export function useAppController() {
     handleStartCapture,
     handleCancelCapture,
     handleEnrolled,
+    handleStartDownload,
+    handleCancelDownload,
     handleOfflineReady,
     handleLogout,
     handleFastExit,

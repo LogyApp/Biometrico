@@ -63,7 +63,7 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     try {
       const ready = await isOfflineReady();
       if (!ready) {
-        throw new Error('Este dispositivo aún no tiene preparado el acceso — completa la descarga inicial.');
+        throw new Error('Sin conexión a internet. Para marcar en zonas sin señal, descarga el paquete sin conexión desde la pantalla de inicio.');
       }
       const profile = await getWorkerProfile();
       if (!profile || Number(profile.identificacion) !== Number(identificacion)) {

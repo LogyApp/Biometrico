@@ -183,12 +183,12 @@ function ProfileScreen({ worker, onBack, home }) {
   );
 }
 
-function DownloadScreen({ worker, onDone }) {
+function DownloadScreen({ worker, onDone, onCancel }) {
   const download = useDownloadController({ worker, onDone });
-  return <DownloadView {...download} />;
+  return <DownloadView {...download} onCancel={onCancel} />;
 }
 
-function HomeScreen({ worker, onLogout, onFastExit }) {
+function HomeScreen({ worker, onLogout, onFastExit, onStartDownload }) {
   const [verifyTipo, setVerifyTipo] = useState(null);
   const [recordsOpen, setRecordsOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
@@ -276,7 +276,7 @@ function HomeScreen({ worker, onLogout, onFastExit }) {
 
   return (
     <>
-      <HomeView {...home} />
+      <HomeView {...home} onStartDownload={onStartDownload} />
       <HelpSheet {...help} />
       <TourView {...help} />
     </>
@@ -307,6 +307,8 @@ function App() {
     handleStartCapture,
     handleCancelCapture,
     handleEnrolled,
+    handleStartDownload,
+    handleCancelDownload,
     handleOfflineReady,
     handleLogout,
     handleFastExit,
@@ -321,7 +323,7 @@ function App() {
   if (step === 'splash') {
     screen = <SplashScreen onReady={handleSplashReady} />;
   } else if (step === 'download') {
-    screen = <DownloadScreen worker={worker} onDone={handleOfflineReady} />;
+    screen = <DownloadScreen worker={worker} onDone={handleOfflineReady} onCancel={handleCancelDownload} />;
   } else if (step === 'capture') {
     screen = (
       <CaptureScreen
@@ -331,7 +333,7 @@ function App() {
       />
     );
   } else if (step === 'home') {
-    screen = <HomeScreen worker={worker} onLogout={handleLogout} onFastExit={handleFastExit} />;
+    screen = <HomeScreen worker={worker} onLogout={handleLogout} onFastExit={handleFastExit} onStartDownload={handleStartDownload} />;
   } else if (step === 'biometric') {
     screen = <BiometricView {...biometric} />;
   } else {
