@@ -1,3 +1,4 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from schemas.marcacion import (
     ManualRequest, ManualResponse,
@@ -7,7 +8,9 @@ from schemas.marcacion import (
 from repositories.vinculacion import VinculacionRepository
 from repositories.marcacion import MarcacionRepository
 from repositories.session import SessionRepository, _bog_day_range
-from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync
+from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync, AsistenciaRepository
+
+logger = logging.getLogger(__name__)
 
 _NOVEDAD_MESSAGES = {
     "recorded":         "Novedad registrada correctamente.",
@@ -75,12 +78,14 @@ class ManualService:
 
     async def register(self, payload: ManualRequest, device_ip: str = "unknown") -> ManualResponse:
         worker = await self._vinc_repo.get_active_worker(payload.identificacion)
+        if not worker:
+            worker = await self._vinc_repo.get_worker_any_state(payload.identificacion)
 
         if not worker:
             return ManualResponse(
                 status="not_found",
                 identificacion=payload.identificacion,
-                message="Trabajador no encontrado o no activo en el sistema.",
+                message="Trabajador no encontrado en el sistema.",
             )
 
         tipo     = payload.tipo.upper()
@@ -117,18 +122,34 @@ class ManualService:
                 ip=device_ip,
                 fecha_hora=marca_dt,
             )
-        await self._session.commit()
 
-        schedule_sync(
-            tipo=tipo,
-            identificacion=worker.identificacion,
-            trabajador=worker.trabajador,
-            nombre=worker.nombre.upper(),
-            operacion=worker.operacion,
-            area=worker.area,
-            marca_datetime=marca_dt,
-            observaciones=f"Manual | {payload.motivo}" if payload.motivo else "Registro manual",
-        )
+        # Sincronización garantizada en el ciclo de vida del request
+        asistencia_repo = AsistenciaRepository(self._session)
+        try:
+            await asistencia_repo.sincronizar(
+                tipo=tipo,
+                identificacion=worker.identificacion,
+                trabajador=worker.trabajador,
+                nombre=worker.nombre.upper(),
+                operacion=worker.operacion or "BIOMETRICO",
+                area=worker.area,
+                marca_datetime=marca_dt,
+                observaciones=f"Manual | {payload.motivo}" if payload.motivo else "Registro manual",
+            )
+        except Exception as exc:
+            logger.error("asistencia_sync error en manual register: %s", exc)
+            schedule_sync(
+                tipo=tipo,
+                identificacion=worker.identificacion,
+                trabajador=worker.trabajador,
+                nombre=worker.nombre.upper(),
+                operacion=worker.operacion or "BIOMETRICO",
+                area=worker.area,
+                marca_datetime=marca_dt,
+                observaciones=f"Manual | {payload.motivo}" if payload.motivo else "Registro manual",
+            )
+
+        await self._session.commit()
 
         return ManualResponse(
             status="recorded",

@@ -5,7 +5,7 @@ from schemas.verify import VerifyRequest, VerifyResponse
 from repositories.face_embedding import FaceEmbeddingRepository
 from repositories.marcacion import MarcacionRepository
 from repositories.vinculacion import VinculacionRepository
-from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync
+from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync, AsistenciaRepository
 from services import face as face_svc
 from core.config import settings
 from core.exceptions import FaceNotDetectedError, InvalidFrameError, ModelNotReadyError, MultipleFacesError, FaceQualityError
@@ -124,20 +124,45 @@ class VerifyService:
                 ip=device_ip,
                 fecha_hora=marca_dt,
             )
-        await self._session.commit()
-
+        # 1. Obtener datos del trabajador: intentar activo, luego cualquier estado, o fallback a facial_embeddings
         worker = await self._vinc_repo.get_active_worker(payload.identificacion)
-        if worker:
-            schedule_sync(
+        if not worker:
+            worker = await self._vinc_repo.get_worker_any_state(payload.identificacion)
+
+        trabajador_str = worker.trabajador if worker else face_emb.trabajador
+        nombre_str     = worker.nombre.upper() if worker else nombre.upper()
+        operacion_str  = (worker.operacion if worker else face_emb.operacion) or "BIOMETRICO"
+        area_val       = worker.area if worker else None
+
+        # 2. Sincronizar directamente con Dynamic_Asistencia en el ciclo de vida del request
+        #    Esto garantiza que Cloud Run no apague la CPU ni mate la tarea antes de guardar.
+        asistencia_repo = AsistenciaRepository(self._session)
+        try:
+            await asistencia_repo.sincronizar(
                 tipo=tipo,
-                identificacion=worker.identificacion,
-                trabajador=worker.trabajador,
-                nombre=worker.nombre.upper(),
-                operacion=worker.operacion,
-                area=worker.area,
+                identificacion=payload.identificacion,
+                trabajador=trabajador_str,
+                nombre=nombre_str,
+                operacion=operacion_str,
+                area=area_val,
                 marca_datetime=marca_dt,
                 observaciones=f"Biométrico | Score: {round(score, 4)}",
             )
+        except Exception as exc:
+            logger.error("asistencia_sync error en verify: %s", exc)
+            # Como respaldo en caso de un lock momentáneo, agendar retry en background
+            schedule_sync(
+                tipo=tipo,
+                identificacion=payload.identificacion,
+                trabajador=trabajador_str,
+                nombre=nombre_str,
+                operacion=operacion_str,
+                area=area_val,
+                marca_datetime=marca_dt,
+                observaciones=f"Biométrico | Score: {round(score, 4)}",
+            )
+
+        await self._session.commit()
 
         _log("authorized_offline_sync" if offline_sync and score < settings.cosine_threshold else "authorized", score)
         return VerifyResponse(

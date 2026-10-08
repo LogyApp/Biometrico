@@ -128,6 +128,47 @@ class VinculacionRepository:
             fecha_expedicion_db=_parse_date(row["s_fecha_exp"]),
         )
 
+    async def get_worker_any_state(self, identificacion: int) -> WorkerInfo | None:
+        result = await self._session.execute(
+            text("""
+                SELECT
+                    v.`Identificación`     AS v_id,
+                    v.`Trabajador`         AS v_trabajador,
+                    v.`Estado`             AS v_estado,
+                    v.`Cargo`              AS v_cargo,
+                    v.`Operación`          AS v_operacion,
+                    v.`Regional`           AS v_regional,
+                    v.`Area`               AS v_area,
+                    s.`Tipo de Documento`  AS s_tipo_doc,
+                    s.`Cod. Tipo Doc`      AS s_cod_tipo,
+                    s.`Fecha Expedición`   AS s_fecha_exp
+                FROM `Maestro_Vinculación` v
+                LEFT JOIN `Maestro_Segmentación` s
+                    ON v.`Identificación` = s.`Identificación`
+                WHERE v.`Identificación` = :id
+                ORDER BY (v.`Estado` = 'Activo') DESC
+                LIMIT 1
+            """),
+            {"id": identificacion},
+        )
+        row = result.mappings().one_or_none()
+        if row is None:
+            return None
+
+        return WorkerInfo(
+            identificacion=row["v_id"],
+            trabajador=row["v_trabajador"],
+            nombre=_parse_nombre(row["v_trabajador"]),
+            estado=row["v_estado"],
+            cargo=row["v_cargo"],
+            operacion=row["v_operacion"],
+            regional=row["v_regional"],
+            area=row["v_area"],
+            tipo_documento_db=row["s_tipo_doc"],
+            cod_tipo_doc=row["s_cod_tipo"],
+            fecha_expedicion_db=_parse_date(row["s_fecha_exp"]),
+        )
+
     async def worker_exists(self, identificacion: int) -> bool:
         if is_blocked(identificacion):
             return False

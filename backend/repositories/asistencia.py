@@ -104,7 +104,8 @@ class AsistenciaRepository:
         dia               = marca_dt.date()
         hora_llegada_str  = marca_dt.strftime("%H:%M:%S")
         id_asistencia, id_registro = _gen_id(dia)
-        area_str = str(area) if area is not None else None
+        operacion_clean   = operacion or "BIOMETRICO"
+        area_str          = str(area) if area is not None else "1"
 
         await self._session.execute(text("""
             INSERT INTO `Dynamic_Asistencia`
@@ -124,7 +125,7 @@ class AsistenciaRepository:
         """), {
             "id_asi":       id_asistencia,
             "id_reg":       id_registro,
-            "operacion":    operacion,
+            "operacion":    operacion_clean,
             "dia":          dia,
             "area":         area_str,
             "trabajador":   trabajador,
@@ -132,7 +133,7 @@ class AsistenciaRepository:
             "nombre":       nombre,
             "hora_llegada": hora_llegada_str,
             "obs":          observaciones,
-            "origen":       operacion,
+            "origen":       operacion_clean,
             "fecha_reg":    _bog_now(),
             "disp1":        area_str,
         })
@@ -151,13 +152,12 @@ class AsistenciaRepository:
         dia              = marca_dt.date()
         hora_salida_str  = marca_dt.strftime("%H:%M:%S")
         now              = _bog_now()
-        area_str         = str(area) if area is not None else None
+        operacion_clean  = operacion or "BIOMETRICO"
+        area_str         = str(area) if area is not None else "1"
 
-        # Buscar la ENTRADA más reciente sin salida, sin filtrar por Día.
-        # Sin este cambio, los turnos nocturnos (ENTRADA el día D, SALIDA el día D+1)
-        # fallaban porque el UPDATE buscaba Día = D+1 y no encontraba la fila de ENTRADA (Día = D).
-        # Filtramos por Hora Llegada IS NOT NULL para no pisar filas de solo-salida.
-        # Tiempo Laborado y Fecha Registro son calculados automáticamente por triggers de UPDATE.
+        # Buscar la ENTRADA más reciente sin salida, sin filtrar rígidamente por día
+        # para cubrir turnos nocturnos. Prioriza registros de 'biometrico' pero
+        # cierra cualquier turno abierto si fue creado por supervisor u otro sistema.
         result = await self._session.execute(text("""
             UPDATE `Dynamic_Asistencia`
             SET
@@ -168,10 +168,9 @@ class AsistenciaRepository:
                     ELSE :obs
                 END
             WHERE `Cédula`         = :cedula
-              AND `Usuario`        = 'biometrico'
               AND `Hora Llegada`   IS NOT NULL
               AND `Hora Salida`    IS NULL
-            ORDER BY `Día` DESC, `Hora Llegada` DESC
+            ORDER BY (LOWER(`Usuario`) = 'biometrico') DESC, `Día` DESC, `Hora Llegada` DESC
             LIMIT 1
         """), {
             "hora_salida": hora_salida_str,
@@ -200,7 +199,7 @@ class AsistenciaRepository:
             """), {
                 "id_asi":      id_asistencia,
                 "id_reg":      id_registro,
-                "operacion":   operacion,
+                "operacion":   operacion_clean,
                 "dia":         dia,
                 "area":        area_str,
                 "trabajador":  trabajador,
@@ -208,13 +207,13 @@ class AsistenciaRepository:
                 "nombre":      nombre,
                 "hora_salida": hora_salida_str,
                 "obs":         observaciones,
-                "origen":      operacion,
+                "origen":      operacion_clean,
                 "fecha_reg":   now,
                 "disp1":       area_str,
             })
 
 
-# ── Background task: crea su propia sesión para no bloquear el request ──────
+# ── Background task con reintentos para contingencias ───────────────────────
 async def _run_sync(
     tipo: str,
     identificacion: int,
@@ -224,24 +223,30 @@ async def _run_sync(
     area: int | None,
     marca_datetime: datetime,
     observaciones: str | None,
+    max_retries: int = 3,
 ) -> None:
     from core.database import AsyncSessionFactory   # import local para evitar circular
-    try:
-        async with AsyncSessionFactory() as session:
-            repo = AsistenciaRepository(session)
-            await repo.sincronizar(
-                tipo=tipo,
-                identificacion=identificacion,
-                trabajador=trabajador,
-                nombre=nombre,
-                operacion=operacion,
-                area=area,
-                marca_datetime=marca_datetime,
-                observaciones=observaciones,
-            )
-            await session.commit()
-    except Exception as exc:
-        logger.error("asistencia_sync error (no crítico): %s", exc)
+    for attempt in range(max_retries):
+        try:
+            async with AsyncSessionFactory() as session:
+                repo = AsistenciaRepository(session)
+                await repo.sincronizar(
+                    tipo=tipo,
+                    identificacion=identificacion,
+                    trabajador=trabajador,
+                    nombre=nombre,
+                    operacion=operacion,
+                    area=area,
+                    marca_datetime=marca_datetime,
+                    observaciones=observaciones,
+                )
+                await session.commit()
+                return
+        except Exception as exc:
+            if attempt < max_retries - 1:
+                await asyncio.sleep(0.5 * (attempt + 1))
+                continue
+            logger.error("asistencia_sync error tras %d intentos: %s", max_retries, exc)
 
 
 def schedule_sync(**kwargs) -> None:

@@ -2,7 +2,7 @@ import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from repositories.marcacion import MarcacionRepository
 from repositories.vinculacion import VinculacionRepository
-from repositories.asistencia import _bog_now, schedule_sync
+from repositories.asistencia import _bog_now, schedule_sync, AsistenciaRepository
 from core.shift_rules import auto_close_deadline, AUTO_CLOSE_MOTIVO
 
 logger = logging.getLogger(__name__)
@@ -36,17 +36,34 @@ class AutoCloseService:
             closed.append(identificacion)
 
             worker = await self._vinc_repo.get_active_worker(identificacion)
+            if not worker:
+                worker = await self._vinc_repo.get_worker_any_state(identificacion)
+
             if worker:
-                schedule_sync(
-                    tipo="SALIDA",
-                    identificacion=worker.identificacion,
-                    trabajador=worker.trabajador,
-                    nombre=worker.nombre.upper(),
-                    operacion=worker.operacion,
-                    area=worker.area,
-                    marca_datetime=deadline,
-                    observaciones=AUTO_CLOSE_MOTIVO,
-                )
+                asistencia_repo = AsistenciaRepository(self._session)
+                try:
+                    await asistencia_repo.sincronizar(
+                        tipo="SALIDA",
+                        identificacion=worker.identificacion,
+                        trabajador=worker.trabajador,
+                        nombre=worker.nombre.upper(),
+                        operacion=worker.operacion or "BIOMETRICO",
+                        area=worker.area,
+                        marca_datetime=deadline,
+                        observaciones=AUTO_CLOSE_MOTIVO,
+                    )
+                except Exception as exc:
+                    logger.error("Error sincronizando auto_close con Dynamic_Asistencia: %s", exc)
+                    schedule_sync(
+                        tipo="SALIDA",
+                        identificacion=worker.identificacion,
+                        trabajador=worker.trabajador,
+                        nombre=worker.nombre.upper(),
+                        operacion=worker.operacion or "BIOMETRICO",
+                        area=worker.area,
+                        marca_datetime=deadline,
+                        observaciones=AUTO_CLOSE_MOTIVO,
+                    )
 
         await self._session.commit()
         logger.info(
