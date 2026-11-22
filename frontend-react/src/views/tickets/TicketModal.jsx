@@ -45,8 +45,20 @@ export default function TicketModal({ open, onClose, worker, onTicketChanged }) 
   const [enviando, setEnviando] = useState(false);
   const [formError, setFormError] = useState(null);
   const [ticketCreado, setTicketCreado] = useState(null);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Mis tickets
   const [ticketsData, setTicketsData] = useState({
@@ -164,6 +176,11 @@ export default function TicketModal({ open, onClose, worker, onTicketChanged }) 
     e.preventDefault();
     setFormError(null);
     setTicketCreado(null);
+
+    if (!isOnline) {
+      setFormError('Estás sin conexión a internet. Conéctate a una red móvil o Wi-Fi para enviar el ticket.');
+      return;
+    }
 
     const motivoFinal =
       motivoSelect === 'Otro' ? (motivoCustom.trim() || 'Otro') : motivoSelect;
@@ -362,6 +379,13 @@ export default function TicketModal({ open, onClose, worker, onTicketChanged }) 
                 </div>
               </div>
 
+              {!isOnline && (
+                <div className="tkb-alert-offline">
+                  <MaterialIcon name="wifi_off" size={18} color="#92400e" />
+                  <span>Estás sin conexión a internet. Los tickets requieren conexión activa para enviarse y adjuntar evidencias.</span>
+                </div>
+              )}
+
               {ticketCreado && (
                 <div className="tkb-alert-success">
                   <MaterialIcon name="check_circle" size={20} color="#15803d" />
@@ -517,12 +541,18 @@ export default function TicketModal({ open, onClose, worker, onTicketChanged }) 
                 <button
                   type="submit"
                   className="tkb-btn-primario"
-                  disabled={enviando}
+                  disabled={enviando || !isOnline}
+                  title={!isOnline ? 'Requiere conexión a internet' : ''}
                 >
                   {enviando ? (
                     <>
                       <MaterialIcon name="sync" size={16} color="#fff" />
                       <span>Enviando…</span>
+                    </>
+                  ) : !isOnline ? (
+                    <>
+                      <MaterialIcon name="wifi_off" size={16} color="#fff" />
+                      <span>Sin conexión</span>
                     </>
                   ) : (
                     <span>Enviar ticket</span>

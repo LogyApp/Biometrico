@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_session
 from core.config import settings
 from services.auto_close import AutoCloseService
+from services.cleanup import CleanupService
 
 router = APIRouter(prefix="/internal", tags=["internal"])
 
@@ -24,3 +25,13 @@ async def auto_cerrar_turnos(
     (medianoche para turno día, mediodía siguiente para turno noche).
     Pensado para ser invocado periódicamente por Cloud Scheduler."""
     return await AutoCloseService(session).run()
+
+
+@router.post("/limpieza-datos")
+async def limpieza_datos(
+    _: None = Depends(verify_internal_token),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Purga sesiones cerradas y expiradas de más de 90 días para mantener
+    la base de datos optimizada y compacta."""
+    return await CleanupService(session).run_cleanup()
