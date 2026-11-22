@@ -51,6 +51,8 @@ export default function VerifyView({
   manualError,
   dismissManualError,
   submitManualMovement,
+  geoNotice,
+  confirmGeoNotice,
   location,
   locationStatus,
   address,
@@ -126,11 +128,28 @@ export default function VerifyView({
         />
       )}
 
-      {status === 'authorized' && (
+      {status === 'authorized' && !geoNotice && (
         <StatusBlurOverlay
           icon={<MaterialIcon name="check_circle" size={30} fill={1} color="#1E9E5A" />}
           title={verifySuccessMessage(tipo)}
           tone="success"
+        />
+      )}
+
+      {geoNotice && (
+        <StatusBlurOverlay
+          icon={
+            geoNotice.type === 'apoyo' ? (
+              <MaterialIcon name="swap_horiz" size={32} fill={1} color="rgb(0, 31, 71)" />
+            ) : (
+              <MaterialIcon name="location_off" size={32} fill={1} color="#D97706" />
+            )
+          }
+          title={geoNotice.title}
+          subtitle={geoNotice.message}
+          tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
+          retryLabel={geoNotice.buttonLabel}
+          onRetry={confirmGeoNotice}
         />
       )}
 

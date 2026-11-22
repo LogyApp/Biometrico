@@ -42,6 +42,7 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
   const [manualSheetOpen, setManualSheetOpen] = useState(false);
   const [manualMotivo, setManualMotivo] = useState('');
   const [manualError, setManualError] = useState(null);
+  const [geoNotice, setGeoNotice] = useState(null);
 
   const stop = useCallback(() => {
     runIdRef.current++;
@@ -50,7 +51,47 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     cameraReadyRef.current = false;
   }, []);
 
+  const confirmGeoNotice = useCallback(() => {
+    if (!geoNotice) return;
+    const { response, frame } = geoNotice;
+    setGeoNotice(null);
+    stop();
+    onDone({ ...response, tipo, frame });
+  }, [geoNotice, onDone, tipo, stop]);
+
   const finishAuthorized = useCallback((response, frame) => {
+    if (response.es_apoyo) {
+      setStatus('authorized');
+      stop();
+      setGeoNotice({
+        type: 'apoyo',
+        title: 'Apoyo a otra operación detectado',
+        message:
+          response.mensaje_operacion ||
+          `Identificamos que te encuentras en ${response.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${response.operacion_asignada}).\n\nTu asistencia quedará registrada en ${response.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${response.operacion_asignada}.`,
+        buttonLabel: 'Entendido',
+        response,
+        frame,
+      });
+      return;
+    }
+
+    if (response.fuera_de_sede) {
+      setStatus('authorized');
+      stop();
+      setGeoNotice({
+        type: 'fuera_de_sede',
+        title: 'Ubicación fuera de sede',
+        message:
+          response.mensaje_operacion ||
+          `No detectamos una operación cercana a tu ubicación actual.\n\nTu marcación se registrará en tu operación habitual: ${response.operacion_asignada}.`,
+        buttonLabel: 'Aceptar',
+        response,
+        frame,
+      });
+      return;
+    }
+
     setStatus('authorized');
     setTimeout(() => {
       if (!mountedRef.current) return;
@@ -317,6 +358,8 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     manualError,
     dismissManualError,
     submitManualMovement,
+    geoNotice,
+    confirmGeoNotice,
     permissionPrompt: cameraPermission.visible
       ? { requesting: cameraPermission.requesting, onAllow: cameraPermission.allow, onDismiss: cameraPermission.dismiss }
       : null,

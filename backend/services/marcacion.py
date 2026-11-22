@@ -9,6 +9,7 @@ from repositories.vinculacion import VinculacionRepository
 from repositories.marcacion import MarcacionRepository
 from repositories.session import SessionRepository, _bog_day_range
 from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync, AsistenciaRepository
+from services.operacion_geo import evaluar_operacion
 
 logger = logging.getLogger(__name__)
 
@@ -123,18 +124,33 @@ class ManualService:
                 fecha_hora=marca_dt,
             )
 
+        # Evaluar geolocalización respecto a sedes activas (radio 300 m)
+        operacion_base = worker.operacion or "BIOMETRICO"
+        geo_res = await evaluar_operacion(
+            self._session,
+            lat=payload.latitud,
+            lng=payload.longitud,
+            op_asignada=operacion_base,
+        )
+
         # Sincronización garantizada en el ciclo de vida del request
         asistencia_repo = AsistenciaRepository(self._session)
+        obs_base = f"Manual | {payload.motivo}" if payload.motivo else "Registro manual"
+        if geo_res.distancia_m is not None:
+            obs_base += f" | {geo_res.distancia_m}m"
+
         try:
             await asistencia_repo.sincronizar(
                 tipo=tipo,
                 identificacion=worker.identificacion,
                 trabajador=worker.trabajador,
                 nombre=worker.nombre.upper(),
-                operacion=worker.operacion or "BIOMETRICO",
+                operacion=geo_res.operacion_efectiva,
                 area=worker.area,
                 marca_datetime=marca_dt,
-                observaciones=f"Manual | {payload.motivo}" if payload.motivo else "Registro manual",
+                observaciones=obs_base,
+                es_apoyo=geo_res.es_apoyo,
+                operacion_casa=geo_res.operacion_asignada,
             )
         except Exception as exc:
             logger.error("asistencia_sync error en manual register: %s", exc)
@@ -143,10 +159,12 @@ class ManualService:
                 identificacion=worker.identificacion,
                 trabajador=worker.trabajador,
                 nombre=worker.nombre.upper(),
-                operacion=worker.operacion or "BIOMETRICO",
+                operacion=geo_res.operacion_efectiva,
                 area=worker.area,
                 marca_datetime=marca_dt,
-                observaciones=f"Manual | {payload.motivo}" if payload.motivo else "Registro manual",
+                observaciones=obs_base,
+                es_apoyo=geo_res.es_apoyo,
+                operacion_casa=geo_res.operacion_asignada,
             )
 
         await self._session.commit()
@@ -156,4 +174,11 @@ class ManualService:
             identificacion=payload.identificacion,
             nombre=worker.nombre,
             message="Registro manual completado.",
+            es_apoyo=geo_res.es_apoyo,
+            fuera_de_sede=geo_res.fuera_de_sede,
+            operacion_efectiva=geo_res.operacion_efectiva,
+            operacion_asignada=geo_res.operacion_asignada,
+            operacion_detectada=geo_res.operacion_detectada,
+            distancia_m=geo_res.distancia_m,
+            mensaje_operacion=geo_res.mensaje,
         )

@@ -14,10 +14,17 @@ class ManualRequest(BaseModel):
 
 
 class ManualResponse(BaseModel):
-    status:         Literal["recorded", "not_found", "no_active_entry", "error"]
-    identificacion: int
-    nombre:         Optional[str] = None
-    message:        str
+    status:              Literal["recorded", "not_found", "no_active_entry", "error"]
+    identificacion:      int
+    nombre:              Optional[str] = None
+    message:             str
+    es_apoyo:            bool = False
+    fuera_de_sede:       bool = False
+    operacion_efectiva:  Optional[str] = None
+    operacion_asignada:  Optional[str] = None
+    operacion_detectada: Optional[str] = None
+    distancia_m:         Optional[int] = None
+    mensaje_operacion:   Optional[str] = None
 
 
 class NovedadSalidaRequest(BaseModel):

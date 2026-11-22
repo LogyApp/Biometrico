@@ -7,6 +7,7 @@ from repositories.marcacion import MarcacionRepository
 from repositories.vinculacion import VinculacionRepository
 from repositories.asistencia import _bog_now, _client_ts_to_bog, schedule_sync, AsistenciaRepository
 from services import face as face_svc
+from services.operacion_geo import evaluar_operacion
 from core.config import settings
 from core.exceptions import FaceNotDetectedError, InvalidFrameError, ModelNotReadyError, MultipleFacesError, FaceQualityError
 
@@ -134,19 +135,32 @@ class VerifyService:
         operacion_str  = (worker.operacion if worker else face_emb.operacion) or "BIOMETRICO"
         area_val       = worker.area if worker else None
 
-        # 2. Sincronizar directamente con Dynamic_Asistencia en el ciclo de vida del request
-        #    Esto garantiza que Cloud Run no apague la CPU ni mate la tarea antes de guardar.
+        # 2. Evaluar geolocalización respecto a sedes activas (radio 300 m)
+        geo_res = await evaluar_operacion(
+            self._session,
+            lat=payload.latitud,
+            lng=payload.longitud,
+            op_asignada=operacion_str,
+        )
+
+        # 3. Sincronizar directamente con Dynamic_Asistencia en el ciclo de vida del request
         asistencia_repo = AsistenciaRepository(self._session)
+        obs_base = f"Biométrico | Score: {round(score, 4)}"
+        if geo_res.distancia_m is not None:
+            obs_base += f" | {geo_res.distancia_m}m"
+
         try:
             await asistencia_repo.sincronizar(
                 tipo=tipo,
                 identificacion=payload.identificacion,
                 trabajador=trabajador_str,
                 nombre=nombre_str,
-                operacion=operacion_str,
+                operacion=geo_res.operacion_efectiva,
                 area=area_val,
                 marca_datetime=marca_dt,
-                observaciones=f"Biométrico | Score: {round(score, 4)}",
+                observaciones=obs_base,
+                es_apoyo=geo_res.es_apoyo,
+                operacion_casa=geo_res.operacion_asignada,
             )
         except Exception as exc:
             logger.error("asistencia_sync error en verify: %s", exc)
@@ -156,10 +170,12 @@ class VerifyService:
                 identificacion=payload.identificacion,
                 trabajador=trabajador_str,
                 nombre=nombre_str,
-                operacion=operacion_str,
+                operacion=geo_res.operacion_efectiva,
                 area=area_val,
                 marca_datetime=marca_dt,
-                observaciones=f"Biométrico | Score: {round(score, 4)}",
+                observaciones=obs_base,
+                es_apoyo=geo_res.es_apoyo,
+                operacion_casa=geo_res.operacion_asignada,
             )
 
         await self._session.commit()
@@ -171,4 +187,11 @@ class VerifyService:
             nombre=nombre,
             score=round(score, 4),
             message="Identidad verificada.",
+            es_apoyo=geo_res.es_apoyo,
+            fuera_de_sede=geo_res.fuera_de_sede,
+            operacion_efectiva=geo_res.operacion_efectiva,
+            operacion_asignada=geo_res.operacion_asignada,
+            operacion_detectada=geo_res.operacion_detectada,
+            distancia_m=geo_res.distancia_m,
+            mensaje_operacion=geo_res.mensaje,
         )
