@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     embedding_cache_ttl_seconds: int = 60
     avatar_bucket: str = "logyser-perfiles"
     avatar_prefix: str = "facial-avatars"
+    tickets_bucket: str = "logyser-recursos-corporativos"
+    tickets_prefix: str = "evidencia_tickets"
     gcp_project_id: str = "eternal-brand-454501-i8"
     log_level: str = "INFO"
     internal_task_token: str = ""

@@ -39,6 +39,7 @@ import DownloadView from './views/DownloadView';
 import SplashView from './views/SplashView';
 import AppUpdateView from './views/AppUpdateView';
 import InstallPromptGate from './views/InstallPromptGate';
+import FloatingTicketButton from './views/tickets/FloatingTicketButton';
 
 const VERIFY_TIPO_LABELS = {
   ENTRADA: 'Registrar Ingreso',
@@ -279,6 +280,7 @@ function HomeScreen({ worker, onLogout, onFastExit, onStartDownload }) {
       <HomeView {...home} onStartDownload={onStartDownload} />
       <HelpSheet {...help} />
       <TourView {...help} />
+      <FloatingTicketButton worker={worker} />
     </>
   );
 }

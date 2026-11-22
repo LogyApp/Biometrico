@@ -9,10 +9,11 @@ from .push import router as push_router
 from .profile import router as profile_router
 from .internal import router as internal_router
 from .sede import router as sede_router
+from .tickets import router as tickets_router
 
 __all__ = [
     "health_router", "enrollment_router", "verify_router",
     "marcacion_router", "movimiento_router", "history_router",
     "session_router", "push_router", "profile_router", "internal_router",
-    "sede_router",
+    "sede_router", "tickets_router",
 ]

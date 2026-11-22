@@ -21,7 +21,7 @@ from routers import (
     health_router, enrollment_router, verify_router,
     marcacion_router, movimiento_router, history_router,
     session_router, push_router, profile_router, internal_router,
-    sede_router,
+    sede_router, tickets_router,
 )
 
 configure_logging(settings.log_level)
@@ -118,6 +118,7 @@ app.include_router(push_router)
 app.include_router(profile_router)
 app.include_router(internal_router)
 app.include_router(sede_router)
+app.include_router(tickets_router)
 
 app.state.get_status = lambda: {
     "model_ready": model_state.ready,
