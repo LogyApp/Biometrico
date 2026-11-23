@@ -9,12 +9,18 @@ from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
-RADIO_PROXIMIDAD_KM: float = 0.300  # 300 metros
+RADIO_PROXIMIDAD_KM: float = 0.300  # 300 metros por defecto
 CACHE_TTL_SEGUNDOS: float = 600.0   # 10 minutos
 
-_cache_ops: list[tuple[str, float, float]] = []
-_cache_timestamp: float = 0.0
-_cache_lock = asyncio.Lock()
+
+@dataclass
+class SedeGeoTarget:
+    operacion: str
+    nombre_punto: Optional[str]
+    ciudad: Optional[str]
+    latitud: float
+    longitud: float
+    radio_km: float = 0.300
 
 
 @dataclass
@@ -26,6 +32,11 @@ class OperacionGeoResult:
     operacion_detectada: Optional[str]
     distancia_m: Optional[int]
     mensaje: Optional[str]
+
+
+_cache_targets: list[SedeGeoTarget] = []
+_cache_timestamp: float = 0.0
+_cache_lock = asyncio.Lock()
 
 
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -41,47 +52,85 @@ def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     return r * c
 
 
-async def _obtener_operaciones_activas(session: AsyncSession) -> list[tuple[str, float, float]]:
-    """Retorna la lista de operaciones activas con coordenadas, usando caché en memoria."""
-    global _cache_ops, _cache_timestamp
+async def _obtener_operaciones_activas(session: AsyncSession) -> list[SedeGeoTarget]:
+    """
+    Retorna la lista de sedes principales y puntos satélites con coordenadas,
+    usando caché en memoria de 10 minutos.
+    """
+    global _cache_targets, _cache_timestamp
 
     now = time.monotonic()
-    if _cache_ops and (now - _cache_timestamp) < CACHE_TTL_SEGUNDOS:
-        return _cache_ops
+    if _cache_targets and (now - _cache_timestamp) < CACHE_TTL_SEGUNDOS:
+        return _cache_targets
 
     async with _cache_lock:
-        # Doble verificación tras adquirir el lock
-        if _cache_ops and (time.monotonic() - _cache_timestamp) < CACHE_TTL_SEGUNDOS:
-            return _cache_ops
+        if _cache_targets and (time.monotonic() - _cache_timestamp) < CACHE_TTL_SEGUNDOS:
+            return _cache_targets
 
+        targets: list[SedeGeoTarget] = []
+
+        # 1. Cargar operaciones principales desde Maestro_Operaciones
         try:
-            result = await session.execute(text("""
+            res_ops = await session.execute(text("""
                 SELECT `OPERACIÓN`, `LATITUD`, `LONGITUD`
                 FROM `Maestro_Operaciones`
                 WHERE `REGIONAL` != 'INACTIVO'
                   AND `LATITUD` IS NOT NULL
                   AND `LONGITUD` IS NOT NULL
             """))
-            rows = result.fetchall()
-            ops: list[tuple[str, float, float]] = []
-            for row in rows:
+            for row in res_ops.fetchall():
                 nombre = str(row[0]).strip() if row[0] else ""
                 if not nombre or row[1] is None or row[2] is None:
                     continue
                 try:
-                    lat = float(row[1])
-                    lon = float(row[2])
-                    ops.append((nombre, lat, lon))
+                    targets.append(SedeGeoTarget(
+                        operacion=nombre,
+                        nombre_punto=None,
+                        ciudad=None,
+                        latitud=float(row[1]),
+                        longitud=float(row[2]),
+                        radio_km=RADIO_PROXIMIDAD_KM,
+                    ))
                 except (ValueError, TypeError):
                     continue
-
-            _cache_ops = ops
-            _cache_timestamp = time.monotonic()
-            logger.info("Caché de operaciones geolocalizadas recargada: %d sedes", len(_cache_ops))
-            return _cache_ops
         except Exception as exc:
             logger.error("Error al cargar Maestro_Operaciones: %s", exc)
-            return _cache_ops or []
+
+        # 2. Cargar puntos de operación satélites desde Maestro_Operaciones_Puntos
+        try:
+            res_puntos = await session.execute(text("""
+                SELECT `operacion`, `nombre_punto`, `ciudad`, `latitud`, `longitud`, `radio_metros`
+                FROM `Maestro_Operaciones_Puntos`
+                WHERE `activo` = 1
+                  AND `latitud` IS NOT NULL
+                  AND `longitud` IS NOT NULL
+            """))
+            for row in res_puntos.fetchall():
+                op_nombre = str(row[0]).strip() if row[0] else ""
+                pto_nombre = str(row[1]).strip() if row[1] else ""
+                ciudad = str(row[2]).strip() if row[2] else None
+                if not op_nombre or row[3] is None or row[4] is None:
+                    continue
+                try:
+                    radio_m = int(row[5]) if row[5] is not None else 300
+                    radio_km = radio_m / 1000.0
+                    targets.append(SedeGeoTarget(
+                        operacion=op_nombre,
+                        nombre_punto=pto_nombre or op_nombre,
+                        ciudad=ciudad,
+                        latitud=float(row[3]),
+                        longitud=float(row[4]),
+                        radio_km=radio_km,
+                    ))
+                except (ValueError, TypeError):
+                    continue
+        except Exception as exc:
+            logger.warning("Nota: Maestro_Operaciones_Puntos no disponible o error: %s", exc)
+
+        _cache_targets = targets
+        _cache_timestamp = time.monotonic()
+        logger.info("Caché de geolocalización recargada: %d destinos activos", len(_cache_targets))
+        return _cache_targets
 
 
 async def evaluar_operacion(
@@ -91,8 +140,8 @@ async def evaluar_operacion(
     op_asignada: Optional[str],
 ) -> OperacionGeoResult:
     """
-    Determina si la marcación ocurre en la operación asignada, en otra operación (apoyo),
-    o fuera del perímetro de sedes conocidas (radio 300 m).
+    Determina si la marcación ocurre en la operación asignada (sede principal o punto satélite),
+    en otra operación distinta (apoyo), o fuera del perímetro de sedes conocidas.
     """
     op_asignada_clean = (op_asignada or "BIOMETRICO").strip()
 
@@ -111,9 +160,8 @@ async def evaluar_operacion(
             ),
         )
 
-    operaciones = await _obtener_operaciones_activas(session)
-    if not operaciones:
-        # Fallback sin sedes cargadas
+    targets = await _obtener_operaciones_activas(session)
+    if not targets:
         return OperacionGeoResult(
             es_apoyo=False,
             fuera_de_sede=False,
@@ -124,25 +172,28 @@ async def evaluar_operacion(
             mensaje=None,
         )
 
+    # Buscar el punto más cercano que esté dentro de su respectivo radio permitido
     min_dist = float("inf")
-    min_op: Optional[str] = None
+    best_target: Optional[SedeGeoTarget] = None
 
-    for op_nom, op_lat, op_lon in operaciones:
-        d = haversine_km(lat, lng, op_lat, op_lon)
-        if d < min_dist:
+    for target in targets:
+        d = haversine_km(lat, lng, target.latitud, target.longitud)
+        if d <= target.radio_km and d < min_dist:
             min_dist = d
-            min_op = op_nom
+            best_target = target
 
-    if min_op is not None and min_dist <= RADIO_PROXIMIDAD_KM:
+    if best_target is not None:
         dist_m = int(round(min_dist * 1000))
-        # Comparación insensible a mayúsculas y acentos normalizados
-        if min_op.upper() == op_asignada_clean.upper():
+        punto_label = best_target.nombre_punto or best_target.operacion
+
+        # Comparación de la operación padre (insensible a mayúsculas y acentos)
+        if best_target.operacion.upper() == op_asignada_clean.upper():
             return OperacionGeoResult(
                 es_apoyo=False,
                 fuera_de_sede=False,
                 operacion_efectiva=op_asignada_clean,
                 operacion_asignada=op_asignada_clean,
-                operacion_detectada=min_op,
+                operacion_detectada=punto_label,
                 distancia_m=dist_m,
                 mensaje=None,
             )
@@ -150,17 +201,24 @@ async def evaluar_operacion(
             return OperacionGeoResult(
                 es_apoyo=True,
                 fuera_de_sede=False,
-                operacion_efectiva=min_op,
+                operacion_efectiva=best_target.operacion,
                 operacion_asignada=op_asignada_clean,
-                operacion_detectada=min_op,
+                operacion_detectada=punto_label,
                 distancia_m=dist_m,
                 mensaje=(
-                    f"Identificamos que te encuentras en {min_op}, diferente a tu operación habitual ({op_asignada_clean}).\n\n"
-                    f"Tu asistencia quedará registrada en {min_op} y se reportará automáticamente como apoyo desde {op_asignada_clean}."
+                    f"Identificamos que te encuentras en {punto_label}, diferente a tu operación habitual ({op_asignada_clean}).\n\n"
+                    f"Tu asistencia quedará registrada en {best_target.operacion} y se reportará automáticamente como apoyo desde {op_asignada_clean}."
                 ),
             )
     else:
-        dist_m = int(round(min_dist * 1000)) if min_op is not None else None
+        # Fuera del perímetro de todas las sedes y puntos satélites
+        nearest_d = float("inf")
+        for target in targets:
+            d = haversine_km(lat, lng, target.latitud, target.longitud)
+            if d < nearest_d:
+                nearest_d = d
+        dist_m = int(round(nearest_d * 1000)) if nearest_d < float("inf") else None
+
         return OperacionGeoResult(
             es_apoyo=False,
             fuera_de_sede=True,
