@@ -27,3 +27,4 @@ class VerifyResponse(BaseModel):
     operacion_detectada: Optional[str] = None
     distancia_m:         Optional[int] = None
     mensaje_operacion:   Optional[str] = None
+    puede_rechazar_apoyo: bool = False

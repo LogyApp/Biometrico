@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_session
 from core.limiter import limiter, real_client_ip
@@ -6,8 +6,12 @@ from schemas.marcacion import (
     ManualRequest, ManualResponse,
     NovedadSalidaRequest, NovedadSalidaResponse,
     NovedadEntradaRequest, NovedadEntradaResponse,
+    DescartarApoyoRequest, DescartarApoyoResponse,
 )
-from services.marcacion import ManualService, NovedadSalidaService, NovedadEntradaService
+from services.marcacion import (
+    ManualService, NovedadSalidaService, NovedadEntradaService,
+    DescartarApoyoService,
+)
 
 router = APIRouter(prefix="/api/attendance", tags=["attendance"])
 
@@ -40,3 +44,16 @@ async def report_entry_novelty(
     session: AsyncSession = Depends(get_session),
 ) -> NovedadEntradaResponse:
     return await NovedadEntradaService(session).report(payload)
+
+
+@router.post("/descartar-apoyo", response_model=DescartarApoyoResponse)
+@limiter.limit("60/minute")
+async def descartar_apoyo(
+    payload: DescartarApoyoRequest,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+) -> DescartarApoyoResponse:
+    res = await DescartarApoyoService(session).execute(payload)
+    if res.status == "forbidden":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=res.message)
+    return res

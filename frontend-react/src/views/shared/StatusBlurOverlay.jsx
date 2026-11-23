@@ -40,7 +40,26 @@ export default function StatusBlurOverlay({
           </div>
         )}
 
-        {hasBoth && secondaryVariant !== 'button' && (
+        {hasBoth && secondaryVariant === 'stack' && (
+          <div className="status-blur-overlay__actions">
+            <button
+              type="button"
+              className={`status-blur-overlay__btn status-blur-overlay__btn--solid status-blur-overlay__btn--${tone}`}
+              onClick={onRetry}
+            >
+              {retryLabel}
+            </button>
+            <button
+              type="button"
+              className="status-blur-overlay__btn status-blur-overlay__btn--ghost"
+              onClick={onSecondary}
+            >
+              {secondaryLabel}
+            </button>
+          </div>
+        )}
+
+        {hasBoth && secondaryVariant !== 'button' && secondaryVariant !== 'stack' && (
           <div className="status-blur-overlay__actions">
             <button
               type="button"

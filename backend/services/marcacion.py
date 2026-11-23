@@ -4,6 +4,7 @@ from schemas.marcacion import (
     ManualRequest, ManualResponse,
     NovedadSalidaRequest, NovedadSalidaResponse,
     NovedadEntradaRequest, NovedadEntradaResponse,
+    DescartarApoyoRequest, DescartarApoyoResponse,
 )
 from repositories.vinculacion import VinculacionRepository
 from repositories.marcacion import MarcacionRepository
@@ -89,6 +90,14 @@ class ManualService:
                 message="Trabajador no encontrado en el sistema.",
             )
 
+        if payload.latitud is None or payload.longitud is None:
+            return ManualResponse(
+                status="error",
+                identificacion=payload.identificacion,
+                nombre=worker.nombre,
+                message="La ubicación GPS es obligatoria para el registro manual.",
+            )
+
         tipo     = payload.tipo.upper()
         marca_dt = _client_ts_to_bog(payload.client_timestamp) or _bog_now()
 
@@ -169,6 +178,10 @@ class ManualService:
 
         await self._session.commit()
 
+        puede_rechazar = False
+        if geo_res.es_apoyo:
+            puede_rechazar = await self._vinc_repo.es_firma_corporativa(payload.identificacion)
+
         return ManualResponse(
             status="recorded",
             identificacion=payload.identificacion,
@@ -181,4 +194,43 @@ class ManualService:
             operacion_detectada=geo_res.operacion_detectada,
             distancia_m=geo_res.distancia_m,
             mensaje_operacion=geo_res.mensaje,
+            puede_rechazar_apoyo=puede_rechazar,
+        )
+
+
+class DescartarApoyoService:
+    def __init__(self, session: AsyncSession) -> None:
+        self._vinc_repo = VinculacionRepository(session)
+        self._session   = session
+
+    async def execute(self, payload: DescartarApoyoRequest) -> DescartarApoyoResponse:
+        es_admin = await self._vinc_repo.es_firma_corporativa(payload.identificacion)
+        if not es_admin:
+            return DescartarApoyoResponse(
+                status="forbidden",
+                message="Solo el personal autorizado de firma corporativa puede descartar la sugerencia de apoyo.",
+            )
+
+        worker = await self._vinc_repo.get_active_worker(payload.identificacion)
+        if not worker:
+            worker = await self._vinc_repo.get_worker_any_state(payload.identificacion)
+
+        op_asignada = worker.operacion if worker else None
+
+        asistencia_repo = AsistenciaRepository(self._session)
+        ok = await asistencia_repo.descartar_apoyo(
+            identificacion=payload.identificacion,
+            operacion_asignada=op_asignada,
+        )
+        if not ok:
+            return DescartarApoyoResponse(
+                status="not_found",
+                message="No se encontró una marcación de apoyo activa hoy para actualizar.",
+            )
+
+        await self._session.commit()
+        return DescartarApoyoResponse(
+            status="ok",
+            message=f"Asistencia registrada en tu operación habitual ({op_asignada or 'asignada'}).",
+            operacion=op_asignada,
         )

@@ -8,7 +8,14 @@ export function getStoredPermission(name) {
 }
 
 export function setStoredPermission(name, value) {
-  localStorage.setItem(STORAGE_KEYS[name], value);
+  if (value === 'granted') {
+    localStorage.setItem(STORAGE_KEYS[name], value);
+  } else {
+    // No almacenar 'denied' permanentemente en localStorage;
+    // así, si el usuario denegó por error y luego lo activa en Ajustes,
+    // la app no queda bloqueada para siempre hasta desinstalar.
+    localStorage.removeItem(STORAGE_KEYS[name]);
+  }
 }
 
 export async function queryLivePermission(name) {
@@ -21,6 +28,11 @@ export async function queryLivePermission(name) {
   }
 }
 
+export async function isGeolocationBlocked() {
+  const live = await queryLivePermission('geolocation');
+  return live === 'denied';
+}
+
 export async function resolvePermissionStatus(name) {
   const live = await queryLivePermission(name);
   if (live === 'granted') {
@@ -28,7 +40,6 @@ export async function resolvePermissionStatus(name) {
     return 'granted';
   }
   if (live === 'denied') {
-    setStoredPermission(name, 'denied');
     return 'denied';
   }
   return getStoredPermission(name) ?? 'unknown';
@@ -41,7 +52,6 @@ export async function probeCameraPermission() {
 export function probeGeolocationPermission() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
-      setStoredPermission('geolocation', 'denied');
       resolve(false);
       return;
     }
@@ -50,13 +60,10 @@ export function probeGeolocationPermission() {
         setStoredPermission('geolocation', 'granted');
         resolve(true);
       },
-      (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          setStoredPermission('geolocation', 'denied');
-        }
+      () => {
         resolve(false);
       },
-      { timeout: 10000, maximumAge: 60000 }
+      { timeout: 15000, maximumAge: 60000 }
     );
   });
 }

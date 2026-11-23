@@ -181,8 +181,20 @@ export function useRecordsController({ identificacion, onBack }) {
     });
   }
 
-  function openMap(lat, lng, label) {
-    setMapTarget({ lat, lng, label, address: null, addressStatus: 'loading' });
+  function openMap(lat, lng, label, extra = {}) {
+    setMapTarget({
+      lat,
+      lng,
+      label,
+      address: null,
+      addressStatus: 'loading',
+      opLat: extra.opLat ?? null,
+      opLng: extra.opLng ?? null,
+      opNombre: extra.opNombre ?? null,
+      distM: extra.distM ?? null,
+      enSede: extra.enSede ?? null,
+      opRadioM: extra.opRadioM ?? null,
+    });
     reverseGeocode(lat, lng)
       .then((address) => {
         setMapTarget((prev) => (prev && prev.lat === lat && prev.lng === lng ? { ...prev, address, addressStatus: 'ready' } : prev));

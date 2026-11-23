@@ -182,3 +182,14 @@ class VinculacionRepository:
             {"id": identificacion},
         )
         return result.fetchone() is not None
+
+    async def es_firma_corporativa(self, identificacion: int) -> bool:
+        result = await self._session.execute(
+            text("""
+                SELECT 1 FROM `Maestro_firma_corporativa`
+                WHERE `Identificacion` = :id
+                LIMIT 1
+            """),
+            {"id": identificacion},
+        )
+        return result.fetchone() is not None

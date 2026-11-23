@@ -53,6 +53,7 @@ export default function VerifyView({
   submitManualMovement,
   geoNotice,
   confirmGeoNotice,
+  rejectGeoNotice,
   location,
   locationStatus,
   address,
@@ -150,6 +151,9 @@ export default function VerifyView({
           tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
           retryLabel={geoNotice.buttonLabel}
           onRetry={confirmGeoNotice}
+          secondaryLabel={geoNotice.secondaryLabel}
+          onSecondary={geoNotice.canReject ? rejectGeoNotice : null}
+          secondaryVariant="stack"
         />
       )}
 

@@ -180,6 +180,10 @@ class VerifyService:
 
         await self._session.commit()
 
+        puede_rechazar = False
+        if geo_res.es_apoyo:
+            puede_rechazar = await self._vinc_repo.es_firma_corporativa(payload.identificacion)
+
         _log("authorized_offline_sync" if offline_sync and score < settings.cosine_threshold else "authorized", score)
         return VerifyResponse(
             status="authorized",
@@ -194,4 +198,5 @@ class VerifyService:
             operacion_detectada=geo_res.operacion_detectada,
             distancia_m=geo_res.distancia_m,
             mensaje_operacion=geo_res.mensaje,
+            puede_rechazar_apoyo=puede_rechazar,
         )

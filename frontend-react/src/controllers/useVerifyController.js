@@ -5,7 +5,7 @@ import { extractEmbeddingLocal, cosineSimilarityLocal } from '../services/localF
 import { isOfflineReady, getEmbeddingVector, getWorkerProfile, enqueueOutbox } from '../services/offlineDb';
 import { requestSync } from '../services/syncService';
 import { verify } from '../models/verifyModel';
-import { getManualMotivoError, registerManual } from '../models/manualModel';
+import { getManualMotivoError, registerManual, descartarApoyo } from '../models/manualModel';
 import { MoveTracker } from '../models/moveTracker';
 import { LOST_DEBOUNCE_FRAMES, LOST_RESET_FRAMES } from '../models/livenessModel';
 import { usePermissionPrompt } from './usePermissionPrompt';
@@ -59,17 +59,40 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     onDone({ ...response, tipo, frame });
   }, [geoNotice, onDone, tipo, stop]);
 
+  const rejectGeoNotice = useCallback(async () => {
+    if (!geoNotice) return;
+    const { response, frame } = geoNotice;
+    try {
+      await descartarApoyo({ identificacion: response.identificacion });
+    } catch (err) {
+      console.warn('Error al descartar apoyo:', err);
+    }
+    setGeoNotice(null);
+    stop();
+    onDone({
+      ...response,
+      tipo,
+      frame,
+      es_apoyo: false,
+      operacion_efectiva: response.operacion_asignada,
+    });
+  }, [geoNotice, onDone, tipo, stop]);
+
   const finishAuthorized = useCallback((response, frame) => {
     if (response.es_apoyo) {
       setStatus('authorized');
       stop();
+      const canReject = Boolean(response.puede_rechazar_apoyo);
       setGeoNotice({
         type: 'apoyo',
         title: 'Apoyo a otra operación detectado',
-        message:
-          response.mensaje_operacion ||
-          `Identificamos que te encuentras en ${response.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${response.operacion_asignada}).\n\nTu asistencia quedará registrada en ${response.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${response.operacion_asignada}.`,
-        buttonLabel: 'Entendido',
+        message: canReject
+          ? `Identificamos que te encuentras en ${response.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${response.operacion_asignada}).\n\nAl ser personal administrativo, puedes registrar tu asistencia como apoyo a esta operación o mantenerla en tu operación habitual.`
+          : (response.mensaje_operacion ||
+            `Identificamos que te encuentras en ${response.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${response.operacion_asignada}).\n\nTu asistencia quedará registrada en ${response.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${response.operacion_asignada}.`),
+        buttonLabel: canReject ? 'Aceptar sugerencia' : 'Entendido',
+        secondaryLabel: canReject ? 'Mantener en mi sede' : null,
+        canReject,
         response,
         frame,
       });
@@ -307,6 +330,12 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
       setManualError(formError);
       return;
     }
+
+    if (tipo !== 'MOVIMIENTO' && (!location?.lat || !location?.lng)) {
+      setManualError('La ubicación GPS es obligatoria para registrar la asistencia. Activa tu GPS e inténtalo de nuevo.');
+      return;
+    }
+
     manualSheetOpenRef.current = false;
     setManualSheetOpen(false);
 
@@ -389,6 +418,7 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     submitManualMovement,
     geoNotice,
     confirmGeoNotice,
+    rejectGeoNotice,
     permissionPrompt: cameraPermission.visible
       ? { requesting: cameraPermission.requesting, onAllow: cameraPermission.allow, onDismiss: cameraPermission.dismiss }
       : null,

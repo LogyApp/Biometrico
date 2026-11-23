@@ -300,6 +300,91 @@ class AsistenciaRepository:
                     "disp1":      area_str,
                 })
 
+    # ── Descartar Apoyo (Personal Administrativo) ────────────────────────
+    async def descartar_apoyo(
+        self,
+        identificacion: int,
+        operacion_asignada: str | None = None,
+        marca_dt: datetime | None = None,
+    ) -> bool:
+        """
+        Para personal de Maestro_firma_corporativa que rechaza la sugerencia de apoyo.
+        Reescribe la entrada registrada en Dynamic_Asistencia a su operación asignada
+        (la que estaba en 'Operación a la que Apoya' u operacion_asignada),
+        quita las marcas de apoyo y elimina el registro espejo con Prefijo Novedad = 'AOO'.
+        """
+        dia = (marca_dt or _bog_now()).date()
+
+        # 1. Buscar la entrada de hoy marcada como apoyo o con operación a la que apoya
+        row = await self._session.execute(text("""
+            SELECT `IdAsistencia`, `IdRegistro`, `Operación`, `Operación a la que Apoya`
+            FROM `Dynamic_Asistencia`
+            WHERE `Cédula` = :cedula
+              AND `Día` = :dia
+              AND `Hora Llegada` IS NOT NULL
+              AND (`Apoyo Otra Operación` = 'SI' OR `Operación a la que Apoya` IS NOT NULL)
+            ORDER BY `Fecha Registro` DESC, `Hora Llegada` DESC
+            LIMIT 1
+        """), {
+            "cedula": identificacion,
+            "dia": dia,
+        })
+        entry = row.mappings().one_or_none()
+
+        if not entry:
+            # Fallback general para cualquier registro de hoy de este trabajador
+            row_fallback = await self._session.execute(text("""
+                SELECT `IdAsistencia`, `IdRegistro`, `Operación`, `Operación a la que Apoya`
+                FROM `Dynamic_Asistencia`
+                WHERE `Cédula` = :cedula
+                  AND `Día` = :dia
+                  AND `Hora Llegada` IS NOT NULL
+                ORDER BY `Fecha Registro` DESC, `Hora Llegada` DESC
+                LIMIT 1
+            """), {
+                "cedula": identificacion,
+                "dia": dia,
+            })
+            entry = row_fallback.mappings().one_or_none()
+
+        if not entry:
+            return False
+
+        id_registro = entry["IdRegistro"]
+        op_casa = entry["Operación a la que Apoya"] or operacion_asignada
+
+        # 2. Actualizar el registro principal a la operación de origen/asignada
+        if op_casa:
+            await self._session.execute(text("""
+                UPDATE `Dynamic_Asistencia`
+                SET
+                    `Operación` = :op_casa,
+                    `Origen` = :op_casa,
+                    `Apoyo Otra Operación` = 'NO',
+                    `Operación a la que Apoya` = NULL
+                WHERE `IdRegistro` = :id_reg
+                  AND `Cédula` = :cedula
+                  AND (`Prefijo Novedad` != 'AOO' OR `Prefijo Novedad` IS NULL)
+            """), {
+                "op_casa": op_casa,
+                "id_reg": id_registro,
+                "cedula": identificacion,
+            })
+
+        # 3. Eliminar la fila espejo AOO
+        await self._session.execute(text("""
+            DELETE FROM `Dynamic_Asistencia`
+            WHERE `Cédula` = :cedula
+              AND `Día` = :dia
+              AND (`Prefijo Novedad` = 'AOO' OR `IdAsistencia` LIKE :aoo_pattern)
+        """), {
+            "cedula": identificacion,
+            "dia": dia,
+            "aoo_pattern": f"{id_registro}%AOO%",
+        })
+
+        return True
+
 
 # ── Background task con reintentos para contingencias ───────────────────────
 async def _run_sync(

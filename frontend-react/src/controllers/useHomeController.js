@@ -7,12 +7,13 @@ import { getCurrentPosition } from '../services/geolocationService';
 import { reverseGeocode } from '../services/geocodingService';
 import { getStoredPhoto, setStoredPhoto } from '../models/lastPhotoStorage';
 import { hasRegisteredToday, markRegisteredToday } from '../models/dailyRegistrationStorage';
-import { getManualMotivoError, registerManual, reportExitNovelty, reportEntryNovelty } from '../models/manualModel';
+import { getManualMotivoError, registerManual, reportExitNovelty, reportEntryNovelty, descartarApoyo } from '../models/manualModel';
 import { enqueueOutbox, getAllOutbox, retryFailedOutbox } from '../services/offlineDb';
 import { outboxToPseudoRecords } from '../models/outboxRecordsModel';
 import { getDeviceFingerprint } from '../models/deviceFingerprint';
 import { requestSync } from '../services/syncService';
 import { usePermissionPrompt } from './usePermissionPrompt';
+import { isGeolocationBlocked } from '../services/permissionsService';
 import { loadMovementSession } from '../models/movementSessionStorage';
 import { isOfflineReady, saveAttendanceCache, getAttendanceCache, saveHistoryCache, getHistoryCache } from '../services/offlineDb';
 import { isConnectivityFailure } from '../services/connectivity';
@@ -98,10 +99,25 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
     setGeoNotice(null);
   }
 
+  async function rejectGeoNotice() {
+    if (!geoNotice) return;
+    try {
+      await descartarApoyo({ identificacion: worker?.identificacion });
+    } catch (err) {
+      console.warn('Error al descartar apoyo:', err);
+    }
+    setGeoNotice(null);
+  }
+
   const mountedRef = useRef(true);
   const attendanceStatusRef = useRef(attendanceStatus);
+  const locationStatusRef = useRef(locationStatus);
   const longShiftTimerRef = useRef(null);
   const pendingLocationActionRef = useRef(null);
+
+  useEffect(() => {
+    locationStatusRef.current = locationStatus;
+  }, [locationStatus]);
 
   function applyAttendanceState(state) {
     setAttendanceStatus(deriveAttendanceStatus({
@@ -396,6 +412,13 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
         startHeartbeat();
         refreshAttendance(true);
         checkOtherDevices();
+        if (locationStatusRef.current !== 'ready') {
+          refreshLocation().then(({ position }) => {
+            if (position) {
+              setLocationRetryAlert(null);
+            }
+          }).catch(() => {});
+        }
       } else {
         stopHeartbeat();
       }
@@ -516,7 +539,8 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
       pendingLocationActionRef.current = null;
       action();
     } else {
-      setLocationRetryAlert({ permitted });
+      const blocked = await isGeolocationBlocked();
+      setLocationRetryAlert({ permitted, blocked });
     }
   }
 
@@ -531,7 +555,8 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
       pendingLocationActionRef.current = null;
       action?.();
     } else {
-      setLocationRetryAlert({ permitted });
+      const blocked = await isGeolocationBlocked();
+      setLocationRetryAlert({ permitted, blocked });
     }
   }
 
@@ -574,12 +599,26 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
       return;
     }
 
+    let curLocation = location;
+    if (!curLocation || locationStatus !== 'ready') {
+      const res = await refreshLocation();
+      curLocation = res.position;
+    }
+
+    if (!curLocation) {
+      setManualError('La ubicación GPS es obligatoria para registrar la asistencia. Activa tu GPS e inténtalo de nuevo.');
+      return;
+    }
+
     const timestampMs = Date.now();
     const payload = {
       identificacion,
       tipo: actionTipo,
       motivo: manualMotivo.trim(),
-      location: location || null,
+      latitud: curLocation.lat,
+      longitud: curLocation.lng,
+      precision_gps: curLocation.accuracy ?? null,
+      location: curLocation,
       clientTimestamp: timestampMs,
     };
 
@@ -593,13 +632,17 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
           applyLocalMarcacion(actionTipo, timestampMs);
 
           if (res.es_apoyo) {
+            const canReject = Boolean(res.puede_rechazar_apoyo);
             setGeoNotice({
               type: 'apoyo',
               title: 'Apoyo a otra operación detectado',
-              message:
-                res.mensaje_operacion ||
-                `Identificamos que te encuentras en ${res.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${res.operacion_asignada}).\n\nTu asistencia quedará registrada en ${res.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${res.operacion_asignada}.`,
-              buttonLabel: 'Entendido',
+              message: canReject
+                ? `Identificamos que te encuentras en ${res.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${res.operacion_asignada}).\n\nAl ser personal administrativo, puedes registrar tu asistencia como apoyo a esta operación o mantenerla en tu operación habitual.`
+                : (res.mensaje_operacion ||
+                  `Identificamos que te encuentras en ${res.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${res.operacion_asignada}).\n\nTu asistencia quedará registrada en ${res.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${res.operacion_asignada}.`),
+              buttonLabel: canReject ? 'Aceptar sugerencia' : 'Entendido',
+              secondaryLabel: canReject ? 'Mantener en mi sede' : null,
+              canReject,
             });
             return;
           }
@@ -772,6 +815,7 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
     submitManual,
     geoNotice,
     confirmGeoNotice,
+    rejectGeoNotice,
     noveltySheetOpen,
     noveltyTipo,
     openNoveltySheet,

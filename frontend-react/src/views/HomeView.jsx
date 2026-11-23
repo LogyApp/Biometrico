@@ -4,6 +4,7 @@ import { getDisplayName } from '../models/nameUtils';
 import { getGreeting, formatTimeShort, formatDateShort } from '../models/dateUtils';
 import { ATTENDANCE_STATUS, attendanceStatusLabel } from '../models/attendanceModel';
 import { getTypeMeta, recordBadge } from '../models/historyModel';
+import { formatDistancia } from '../models/distanceFormat';
 import UserIcon from './icons/UserIcon';
 import MaterialIcon from './icons/MaterialIcon';
 import CircleHelpIcon from './icons/CircleHelpIcon';
@@ -283,6 +284,7 @@ export default function HomeView({
   submitManual,
   geoNotice,
   confirmGeoNotice,
+  rejectGeoNotice,
   noveltySheetOpen,
   noveltyTipo,
   openNoveltySheet,
@@ -379,14 +381,16 @@ export default function HomeView({
         {locationRetryAlert && (
           <StatusBlurOverlay
             icon={<MaterialIcon name="location_on" size={28} fill={1} color="#D64545" />}
-            title="Ubicación necesaria"
+            title={locationRetryAlert.blocked ? 'Permiso de ubicación bloqueado' : 'Ubicación necesaria'}
             subtitle={
-              locationRetryAlert.permitted
-                ? 'No pudimos obtener tu ubicación. Verifica que el GPS esté activado e inténtalo de nuevo.'
-                : 'Necesitamos acceso a tu ubicación para registrar tu asistencia. Permítelo para continuar.'
+              locationRetryAlert.blocked
+                ? 'El acceso a la ubicación fue bloqueado en este dispositivo.\n\nPara activarlo sin reinstalar:\n1. Ve a Ajustes del celular > Aplicaciones > Biométrico (o Chrome).\n2. En Permisos > Ubicación, selecciona "Permitir".\n3. Regresa aquí y toca "Ya lo activé".'
+                : locationRetryAlert.permitted
+                  ? 'No pudimos obtener tu ubicación GPS. Verifica que el GPS de tu celular esté encendido e inténtalo de nuevo.'
+                  : 'Necesitamos acceso a tu ubicación para registrar tu asistencia. Permítelo para continuar.'
             }
             tone="error"
-            retryLabel={locationRetrying ? 'Solicitando…' : (locationRetryAlert.permitted ? 'Reintentar' : 'Permitir ubicación')}
+            retryLabel={locationRetrying ? 'Verificando…' : (locationRetryAlert.blocked ? 'Ya lo activé, reintentar' : 'Reintentar')}
             onRetry={retryLocationAndContinue}
             secondaryLabel="Cancelar"
             onSecondary={dismissLocationRetryAlert}
@@ -432,6 +436,9 @@ export default function HomeView({
             tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
             retryLabel={geoNotice.buttonLabel}
             onRetry={confirmGeoNotice}
+            secondaryLabel={geoNotice.secondaryLabel}
+            onSecondary={geoNotice.canReject ? rejectGeoNotice : null}
+            secondaryVariant="stack"
           />
         )}
 
@@ -724,6 +731,8 @@ export default function HomeView({
                   const meta = getTypeMeta(rec.tipo ?? 'LIBRE');
                   const badge = recordBadge(rec);
                   const isActiveMove = badge?.role === 'active';
+                  const isMarcacion = rec.tipo_registro === 'marcacion';
+                  const distInfo = isMarcacion ? formatDistancia(rec.distancia_m, rec.en_sede) : null;
                   return (
                     <div className="home-recent__item" key={`${rec.tipo_registro}-${rec.id}-${rec.tipo}`}>
                       <span className="home-recent__icon">
@@ -736,6 +745,27 @@ export default function HomeView({
                           {badge ? ` · ${badge.label}` : ''}
                         </span>
                       </div>
+                      {distInfo && (
+                        <span
+                          className="home-recent__dist"
+                          style={{
+                            color: distInfo.color,
+                            background: distInfo.bg,
+                            padding: '3px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '2px',
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={distInfo.detailLabel}
+                        >
+                          {distInfo.badgeLabel}
+                        </span>
+                      )}
                       {isActiveMove && (
                         <span className="home-recent__status">
                           <MaterialIcon name="sync" size={16} color="rgb(0, 31, 71)" />
@@ -897,6 +927,9 @@ export default function HomeView({
           tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
           retryLabel={geoNotice.buttonLabel}
           onRetry={confirmGeoNotice}
+          secondaryLabel={geoNotice.secondaryLabel}
+          onSecondary={geoNotice.canReject ? rejectGeoNotice : null}
+          secondaryVariant="stack"
         />
       )}
 

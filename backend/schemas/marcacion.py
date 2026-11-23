@@ -25,6 +25,17 @@ class ManualResponse(BaseModel):
     operacion_detectada: Optional[str] = None
     distancia_m:         Optional[int] = None
     mensaje_operacion:   Optional[str] = None
+    puede_rechazar_apoyo: bool = False
+
+
+class DescartarApoyoRequest(BaseModel):
+    identificacion: int = Field(..., gt=0)
+
+
+class DescartarApoyoResponse(BaseModel):
+    status:    Literal["ok", "not_found", "forbidden", "error"]
+    message:   str
+    operacion: Optional[str] = None
 
 
 class NovedadSalidaRequest(BaseModel):

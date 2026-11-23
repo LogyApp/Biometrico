@@ -30,6 +30,12 @@ export function reportEntryNovelty({ identificacion, novedad }) {
   });
 }
 
+export function descartarApoyo({ identificacion }) {
+  return httpPost('/attendance/descartar-apoyo', {
+    identificacion,
+  });
+}
+
 export function getManualMotivoError(motivo) {
   const trimmed = (motivo ?? '').trim();
   if (!trimmed) return 'El motivo es obligatorio para completar el registro.';

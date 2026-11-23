@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { NEW_DESIGN_ENABLED } from '../config/designFlags';
 import { getTypeMeta, recordBadge, jornadaStatus, formatDuration, formatElapsed } from '../models/historyModel';
+import { formatDistancia } from '../models/distanceFormat';
 import { formatDateTime, formatDateShort, formatDateLong, formatTimeShort } from '../models/dateUtils';
 import { ensureGoogleMaps } from '../services/googleMapsLoader';
 import { pulsingMarker } from '../services/mapMarkers';
@@ -78,6 +79,7 @@ function MarkRow({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
   const badge = recordBadge(rec);
   const Icon = typeIconFor(tipoKey);
   const time = formatDateTime(rec.fecha_hora);
+  const distInfo = !isMove ? formatDistancia(rec.distancia_m, rec.en_sede) : null;
 
   return (
     <div className="records-card">
@@ -87,13 +89,43 @@ function MarkRow({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
         </div>
         <div className="records-card__heading">
           <div className="records-card__title">{meta.label}</div>
-          <div className="records-card__time">{time}</div>
+          <div className="records-card__time">
+            <span>{time}</span>
+            {distInfo && (
+              <span
+                style={{
+                  color: distInfo.color,
+                  background: distInfo.bg,
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  marginLeft: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                }}
+                title={distInfo.detailLabel}
+              >
+                {distInfo.badgeLabel}
+              </span>
+            )}
+          </div>
         </div>
         {badge && <Badge label={badge.label} role={badge.role} />}
       </button>
 
       {expanded && (
         <div className="records-card__body">
+          {distInfo && (
+            <div className="records-stat-row">
+              <StatBox
+                label="DISTANCIA A OPERACIÓN"
+                value={distInfo.detailLabel + (rec.punto_nombre ? ` (${rec.punto_nombre})` : (rec.operacion_asignada ? ` (${rec.operacion_asignada})` : ''))}
+                color={distInfo.color}
+              />
+            </div>
+          )}
           {!isMove && rec.tipo === 'ENTRADA' && (
             rec.fecha_salida ? (
               <div className="records-stat-row">
@@ -150,7 +182,14 @@ function MarkRow({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
             <button
               type="button"
               className="records-map-btn"
-              onClick={() => onOpenMap(rec.latitud, rec.longitud, `Ubicación — ${meta.label}`)}
+              onClick={() => onOpenMap(rec.latitud, rec.longitud, `Ubicación — ${meta.label}`, {
+                opLat: rec.op_lat,
+                opLng: rec.op_lng,
+                opNombre: rec.punto_nombre || rec.operacion_asignada,
+                distM: rec.distancia_m,
+                enSede: rec.en_sede,
+                opRadioM: rec.op_radio_m,
+              })}
             >
               <MapPinIcon size={14} color="var(--color-link)" />
               Ver ubicación en mapa
@@ -330,6 +369,7 @@ function RecordCardNew({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
   const isMove = rec.tipo_registro === 'movimiento';
   const visual = recordVisual(rec, isMove);
   const paradas = isMove ? (rec.paradas?.length ?? 0) : 0;
+  const distInfo = !isMove ? formatDistancia(rec.distancia_m, rec.en_sede) : null;
 
   return (
     <div className="records-card records-card--new">
@@ -341,7 +381,28 @@ function RecordCardNew({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
           <MaterialIcon name={visual.icon} size={18} weight={600} color={visual.color} />
         </div>
         <div className="records-card__heading">
-          <div className="records-card__time records-card__time--new">{recordTimeLabel(rec, isMove)}</div>
+          <div className="records-card__time records-card__time--new">
+            <span>{recordTimeLabel(rec, isMove)}</span>
+            {distInfo && (
+              <span
+                style={{
+                  color: distInfo.color,
+                  background: distInfo.bg,
+                  padding: '1px 7px',
+                  borderRadius: '7px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  marginLeft: '8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                }}
+                title={distInfo.detailLabel}
+              >
+                {distInfo.badgeLabel}
+              </span>
+            )}
+          </div>
           <div className="records-card__title records-card__title--new">{recordTitle(rec, isMove)}</div>
         </div>
         <span className={`records-card__chevron${expanded ? ' records-card__chevron--open' : ''}`}>
@@ -366,6 +427,15 @@ function RecordCardNew({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
                 {rec.latitud != null && rec.longitud != null && (
                   <div className="records-verify-box__line">
                     <strong>Ubicación:</strong> {rec.latitud.toFixed(5)}°, {rec.longitud.toFixed(5)}° · GPS
+                  </div>
+                )}
+                {distInfo && (
+                  <div className="records-verify-box__line">
+                    <strong>Distancia a sede:</strong>{' '}
+                    <span style={{ color: distInfo.color, fontWeight: 700 }}>
+                      {distInfo.detailLabel}
+                    </span>
+                    {rec.punto_nombre ? ` · ${rec.punto_nombre}` : (rec.operacion_asignada ? ` · ${rec.operacion_asignada}` : '')}
                   </div>
                 )}
               </div>
@@ -394,7 +464,14 @@ function RecordCardNew({ rec, expanded, onToggle, onOpenMap, onOpenRoute }) {
             <button
               type="button"
               className="records-map-btn"
-              onClick={() => onOpenMap(rec.latitud, rec.longitud, `Ubicación — ${recordTitle(rec, false)}`)}
+              onClick={() => onOpenMap(rec.latitud, rec.longitud, `Ubicación — ${recordTitle(rec, false)}`, {
+                opLat: rec.op_lat,
+                opLng: rec.op_lng,
+                opNombre: rec.punto_nombre || rec.operacion_asignada,
+                distM: rec.distancia_m,
+                enSede: rec.en_sede,
+                opRadioM: rec.op_radio_m,
+              })}
             >
               <MapPinIcon size={14} color="var(--color-link)" />
               Ver ubicación en mapa

@@ -5,6 +5,8 @@ from core.database import get_session
 from models.marcacion import FacialMarcacion
 from models.movimiento import FacialMovimiento
 from models.movimiento_waypoint import MovimientoWaypoint
+from repositories.vinculacion import VinculacionRepository
+from services.operacion_geo import _obtener_operaciones_activas, haversine_km
 from schemas.history import HistoryResponse, HistoryRecord, WaypointOut
 
 router = APIRouter(prefix="/api/history", tags=["history"])
@@ -18,6 +20,34 @@ async def get_history(
     limit: int = 40,
     session: AsyncSession = Depends(get_session),
 ) -> HistoryResponse:
+
+    # 1. Obtener operacion asignada y sedes activas para calculo de distancia
+    vinc_repo = VinculacionRepository(session)
+    worker = await vinc_repo.get_active_worker(identificacion)
+    if not worker:
+        worker = await vinc_repo.get_worker_any_state(identificacion)
+    op_asignada = worker.operacion if worker else None
+
+    geo_targets = await _obtener_operaciones_activas(session)
+    op_clean = (op_asignada or "").strip().upper()
+    matching_targets = [t for t in geo_targets if t.operacion.upper() == op_clean] if op_clean else []
+
+    def _calc_dist(lat_val: float | None, lng_val: float | None):
+        if lat_val is None or lng_val is None or (lat_val == 0.0 and lng_val == 0.0) or not matching_targets:
+            return None, None, None, None, None, None
+        min_d = float("inf")
+        best = None
+        for t in matching_targets:
+            d = haversine_km(lat_val, lng_val, t.latitud, t.longitud)
+            if d < min_d:
+                min_d = d
+                best = t
+        if best is None or min_d == float("inf"):
+            return None, None, None, None, None, None
+        dist_m = int(round(min_d * 1000))
+        en_sede = min_d <= best.radio_km
+        radio_m = int(round(best.radio_km * 1000))
+        return dist_m, en_sede, best.nombre_punto or best.operacion, best.latitud, best.longitud, radio_m
 
     marc_q = await session.execute(
         select(FacialMarcacion)
@@ -39,30 +69,52 @@ async def get_history(
     records: list[HistoryRecord] = []
 
     for m in marcaciones:
+        lat_in = float(m.latitud) if m.latitud else None
+        lng_in = float(m.longitud) if m.longitud else None
+        dist_in, en_sede_in, pto_in, op_lat_in, op_lng_in, radio_in = _calc_dist(lat_in, lng_in)
+
         records.append(HistoryRecord(
             tipo_registro="marcacion",
             id=m.id,
             tipo=m.tipo,
             fecha_hora=(m.fecha_entrada or m.fecha_hora).isoformat(),
-            latitud=float(m.latitud) if m.latitud else None,
-            longitud=float(m.longitud) if m.longitud else None,
+            latitud=lat_in,
+            longitud=lng_in,
             score=float(m.score) if m.score is not None else None,
             es_manual=m.es_manual,
             motivo=m.motivo,
             fecha_salida=m.fecha_salida.isoformat() if m.fecha_salida else None,
+            distancia_m=dist_in,
+            en_sede=en_sede_in,
+            operacion_asignada=op_asignada,
+            punto_nombre=pto_in,
+            op_lat=op_lat_in,
+            op_lng=op_lng_in,
+            op_radio_m=radio_in,
         ))
         if m.tipo == "ENTRADA" and m.fecha_salida and m.fecha_entrada:
+            lat_out = float(m.latitud_salida) if m.latitud_salida else None
+            lng_out = float(m.longitud_salida) if m.longitud_salida else None
+            dist_out, en_sede_out, pto_out, op_lat_out, op_lng_out, radio_out = _calc_dist(lat_out, lng_out)
+
             records.append(HistoryRecord(
                 tipo_registro="marcacion",
                 id=m.id,
                 tipo="SALIDA",
                 fecha_hora=m.fecha_salida.isoformat(),
-                latitud=float(m.latitud_salida) if m.latitud_salida else None,
-                longitud=float(m.longitud_salida) if m.longitud_salida else None,
+                latitud=lat_out,
+                longitud=lng_out,
                 score=None,
                 es_manual=m.es_manual_salida,
                 motivo=m.motivo_salida,
                 fecha_salida=None,
+                distancia_m=dist_out,
+                en_sede=en_sede_out,
+                operacion_asignada=op_asignada,
+                punto_nombre=pto_out,
+                op_lat=op_lat_out,
+                op_lng=op_lng_out,
+                op_radio_m=radio_out,
             ))
 
     for mv in movimientos:

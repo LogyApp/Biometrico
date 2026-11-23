@@ -137,6 +137,15 @@ export default function ManualRegisterSheet({
             <span className="manual-register-field__counter">{motivo.length}/512</span>
           </div>
 
+          {locationStatus === 'error' && (
+            <div className="manual-register-warning" style={{ background: 'rgba(214, 69, 69, 0.08)', borderColor: 'rgba(214, 69, 69, 0.25)' }}>
+              <MaterialIcon name="location_off" size={16} color="#D64545" />
+              <span className="manual-register-warning__text" style={{ color: '#D64545' }}>
+                La ubicación GPS es obligatoria para el registro. Verifica que el GPS de tu celular esté encendido y con permisos activos.
+              </span>
+            </div>
+          )}
+
           <div className="manual-register-warning">
             <MaterialIcon name="info" size={16} color="#D97706" />
             <span className="manual-register-warning__text">
@@ -147,8 +156,14 @@ export default function ManualRegisterSheet({
         </div>
 
         <div className="manual-register-footer">
-          <button type="button" className="manual-register-submit" onClick={onSubmit}>
-            {submitLabel}
+          <button
+            type="button"
+            className="manual-register-submit"
+            onClick={onSubmit}
+            disabled={locationStatus === 'loading' || locationStatus === 'error'}
+            style={locationStatus === 'loading' || locationStatus === 'error' ? { opacity: 0.65, cursor: 'not-allowed' } : undefined}
+          >
+            {locationStatus === 'loading' ? 'Obteniendo GPS…' : locationStatus === 'error' ? 'GPS requerido' : submitLabel}
           </button>
         </div>
       </div>
@@ -212,8 +227,23 @@ export default function ManualRegisterSheet({
             <span className="manual-register-field__counter">{motivo.length}/512</span>
           </div>
 
-          <button type="button" className="manual-register-submit" onClick={onSubmit}>
-            {submitLabel}
+          {locationStatus === 'error' && (
+            <div className="manual-register-warning" style={{ background: 'rgba(214, 69, 69, 0.08)', borderColor: 'rgba(214, 69, 69, 0.25)', marginBottom: 12 }}>
+              <MaterialIcon name="location_off" size={16} color="#D64545" />
+              <span className="manual-register-warning__text" style={{ color: '#D64545' }}>
+                La ubicación GPS es obligatoria para el registro. Activa el GPS para continuar.
+              </span>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="manual-register-submit"
+            onClick={onSubmit}
+            disabled={locationStatus === 'loading' || locationStatus === 'error'}
+            style={locationStatus === 'loading' || locationStatus === 'error' ? { opacity: 0.65, cursor: 'not-allowed' } : undefined}
+          >
+            {locationStatus === 'loading' ? 'Obteniendo GPS…' : locationStatus === 'error' ? 'GPS requerido' : submitLabel}
           </button>
         </div>
       </div>

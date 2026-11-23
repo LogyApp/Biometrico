@@ -16,6 +16,13 @@ class HistoryRecord(BaseModel):
     es_manual:     Optional[bool]    = None
     motivo:        Optional[str]     = None
     fecha_salida:  Optional[str]     = None  # ISO — solo en tipo ENTRADA (jornada cerrada)
+    distancia_m:   Optional[int]     = None  # Distancia en metros a la sede asignada
+    en_sede:       Optional[bool]    = None  # True si está dentro del radio permitido (<= 350m o radio_punto)
+    operacion_asignada: Optional[str] = None
+    punto_nombre:  Optional[str]     = None
+    op_lat:        Optional[float]   = None  # Coordenada lat de la sede/punto asignado
+    op_lng:        Optional[float]   = None  # Coordenada lng de la sede/punto asignado
+    op_radio_m:    Optional[int]     = None  # Radio en metros del punto de la operación
     # Solo movimientos
     estado:        Optional[str]     = None
     duracion_min:  Optional[int]     = None
