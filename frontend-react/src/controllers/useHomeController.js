@@ -7,7 +7,7 @@ import { getCurrentPosition } from '../services/geolocationService';
 import { reverseGeocode } from '../services/geocodingService';
 import { getStoredPhoto, setStoredPhoto } from '../models/lastPhotoStorage';
 import { hasRegisteredToday, markRegisteredToday } from '../models/dailyRegistrationStorage';
-import { getManualMotivoError, reportExitNovelty, reportEntryNovelty } from '../models/manualModel';
+import { getManualMotivoError, registerManual, reportExitNovelty, reportEntryNovelty } from '../models/manualModel';
 import { enqueueOutbox, getAllOutbox, retryFailedOutbox } from '../services/offlineDb';
 import { outboxToPseudoRecords } from '../models/outboxRecordsModel';
 import { getDeviceFingerprint } from '../models/deviceFingerprint';
@@ -92,6 +92,11 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
   const [noveltySubmitting, setNoveltySubmitting] = useState(false);
   const [noveltyResult, setNoveltyResult] = useState(null);
   const [offlineReady, setOfflineReady] = useState(true);
+  const [geoNotice, setGeoNotice] = useState(null);
+
+  function confirmGeoNotice() {
+    setGeoNotice(null);
+  }
 
   const mountedRef = useRef(true);
   const attendanceStatusRef = useRef(attendanceStatus);
@@ -542,11 +547,12 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
   }
 
   function openManualSheet() {
-    ensureLocationThen(() => {
-      setManualMotivo('');
-      setManualError(null);
-      setManualSheetOpen(true);
-    }, 'manual');
+    setManualMotivo('');
+    setManualError(null);
+    setManualSheetOpen(true);
+    if (!location || locationStatus !== 'ready') {
+      refreshLocation().catch(() => {});
+    }
   }
 
   function closeManualSheet() {
@@ -567,22 +573,60 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
       setManualError(formError);
       return;
     }
-    if (!location) {
-      setManualError('No se pudo obtener tu ubicación. Cierra este formulario e intenta de nuevo.');
-      return;
-    }
+
     const timestampMs = Date.now();
-    await enqueueOutbox('manual', {
+    const payload = {
       identificacion,
       tipo: actionTipo,
       motivo: manualMotivo.trim(),
-      location,
+      location: location || null,
       clientTimestamp: timestampMs,
-    });
+    };
+
+    setManualSheetOpen(false);
+
+    if (navigator.onLine) {
+      try {
+        const res = await registerManual(payload);
+        if (res.status === 'recorded') {
+          clearLastPhoto();
+          applyLocalMarcacion(actionTipo, timestampMs);
+
+          if (res.es_apoyo) {
+            setGeoNotice({
+              type: 'apoyo',
+              title: 'Apoyo a otra operación detectado',
+              message:
+                res.mensaje_operacion ||
+                `Identificamos que te encuentras en ${res.operacion_detectada || 'otra sede'}, diferente a tu operación habitual (${res.operacion_asignada}).\n\nTu asistencia quedará registrada en ${res.operacion_detectada || 'otra sede'} y se reportará automáticamente como apoyo desde ${res.operacion_asignada}.`,
+              buttonLabel: 'Entendido',
+            });
+            return;
+          }
+
+          if (res.fuera_de_sede) {
+            setGeoNotice({
+              type: 'fuera_de_sede',
+              title: 'Ubicación fuera de sede',
+              message:
+                res.mensaje_operacion ||
+                `No detectamos una operación cercana a tu ubicación actual.\n\nTu marcación se registrará en tu operación habitual: ${res.operacion_asignada}.`,
+              buttonLabel: 'Aceptar',
+            });
+            return;
+          }
+
+          return;
+        }
+      } catch {
+        // En caso de fallo de red, respaldar en outbox
+      }
+    }
+
+    await enqueueOutbox('manual', payload);
     requestSync();
     clearLastPhoto();
     applyLocalMarcacion(actionTipo, timestampMs);
-    setManualSheetOpen(false);
   }
 
   function openNoveltySheet(tipo) {
@@ -726,6 +770,8 @@ export function useHomeController({ worker, onLogout, onFastExit, onStartVerify,
     manualError,
     dismissManualError,
     submitManual,
+    geoNotice,
+    confirmGeoNotice,
     noveltySheetOpen,
     noveltyTipo,
     openNoveltySheet,

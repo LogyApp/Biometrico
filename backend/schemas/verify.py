@@ -6,8 +6,8 @@ class VerifyRequest(BaseModel):
     identificacion:     int = Field(..., gt=0)
     frame:              str
     tipo:               str = "ENTRADA"
-    latitud:            float
-    longitud:           float
+    latitud:            Optional[float] = None
+    longitud:           Optional[float] = None
     precision_gps:      Optional[int]   = None
     device_fingerprint: Optional[str]  = None
     client_timestamp:   Optional[int] = None

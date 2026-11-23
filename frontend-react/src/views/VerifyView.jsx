@@ -109,7 +109,7 @@ export default function VerifyView({
 
       {showFaceGuide && <div className="verify-instruction">{instruction}</div>}
 
-      {showFaceGuide && tipo === 'MOVIMIENTO' && (
+      {showFaceGuide && (
         <button type="button" className="verify-manual-trigger" onClick={openManualSheet}>
           ¿Problemas con la cámara? Continuar manualmente
         </button>
@@ -179,8 +179,8 @@ export default function VerifyView({
 
       <ManualRegisterSheet
         open={manualSheetOpen}
-        actionTipo="MOVIMIENTO"
-        title="Movimiento manual"
+        actionTipo={tipo}
+        title={tipo === 'MOVIMIENTO' ? 'Movimiento manual' : (tipo === 'SALIDA' ? 'Salida manual' : 'Ingreso manual')}
         subtitle="Se registrará sin verificación biométrica"
         motivo={manualMotivo}
         updateMotivo={updateManualMotivo}
@@ -191,7 +191,7 @@ export default function VerifyView({
         addressStatus={addressStatus}
         location={locationStatus === 'ready' ? location : null}
         now={Date.now()}
-        submitLabel="Continuar sin biometría"
+        submitLabel={tipo === 'MOVIMIENTO' ? 'Continuar sin biometría' : 'Confirmar registro manual'}
       />
 
       {manualError && (

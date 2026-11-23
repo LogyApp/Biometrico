@@ -5,7 +5,7 @@ import { extractEmbeddingLocal, cosineSimilarityLocal } from '../services/localF
 import { isOfflineReady, getEmbeddingVector, getWorkerProfile, enqueueOutbox } from '../services/offlineDb';
 import { requestSync } from '../services/syncService';
 import { verify } from '../models/verifyModel';
-import { getManualMotivoError } from '../models/manualModel';
+import { getManualMotivoError, registerManual } from '../models/manualModel';
 import { MoveTracker } from '../models/moveTracker';
 import { LOST_DEBOUNCE_FRAMES, LOST_RESET_FRAMES } from '../models/livenessModel';
 import { usePermissionPrompt } from './usePermissionPrompt';
@@ -301,7 +301,7 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
 
   const updateManualMotivo = useCallback((value) => setManualMotivo(value.slice(0, 512)), []);
 
-  const submitManualMovement = useCallback(() => {
+  const submitManualMovement = useCallback(async () => {
     const formError = getManualMotivoError(manualMotivo);
     if (formError) {
       setManualError(formError);
@@ -309,15 +309,44 @@ export function useVerifyController({ identificacion, tipo, location, onDone, on
     }
     manualSheetOpenRef.current = false;
     setManualSheetOpen(false);
-    stop();
-    onDone({
-      status: 'authorized',
+
+    if (tipo === 'MOVIMIENTO') {
+      stop();
+      onDone({
+        status: 'authorized',
+        tipo,
+        manual: true,
+        motivo: manualMotivo.trim(),
+        clientTimestamp: Date.now(),
+      });
+      return;
+    }
+
+    const capturedAt = Date.now();
+    const payload = {
+      identificacion,
       tipo,
-      manual: true,
       motivo: manualMotivo.trim(),
-      clientTimestamp: Date.now(),
-    });
-  }, [manualMotivo, tipo, onDone, stop]);
+      location: location || null,
+      clientTimestamp: capturedAt,
+    };
+
+    if (navigator.onLine) {
+      try {
+        const res = await registerManual(payload);
+        if (res.status === 'recorded') {
+          finishAuthorized({ ...res, manual: true, motivo: manualMotivo.trim(), clientTimestamp: capturedAt });
+          return;
+        }
+      } catch {
+        // En caso de fallo de red, respaldar en outbox
+      }
+    }
+
+    await enqueueOutbox('manual', payload);
+    requestSync();
+    finishAuthorized({ status: 'authorized', manual: true, motivo: manualMotivo.trim(), clientTimestamp: capturedAt });
+  }, [manualMotivo, tipo, identificacion, location, onDone, stop, finishAuthorized]);
 
   const retry = useCallback(() => {
     if (cameraReadyRef.current) {

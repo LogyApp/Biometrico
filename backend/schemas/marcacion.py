@@ -6,8 +6,8 @@ class ManualRequest(BaseModel):
     identificacion:    int = Field(..., gt=0)
     tipo:              str = "ENTRADA"
     motivo:            str = Field(..., min_length=4, max_length=512)
-    latitud:           float
-    longitud:          float
+    latitud:           Optional[float] = None
+    longitud:          Optional[float] = None
     precision_gps:     Optional[int]   = None
     device_fingerprint: Optional[str]  = None
     client_timestamp:  Optional[int]   = None

@@ -281,6 +281,8 @@ export default function HomeView({
   manualError,
   dismissManualError,
   submitManual,
+  geoNotice,
+  confirmGeoNotice,
   noveltySheetOpen,
   noveltyTipo,
   openNoveltySheet,
@@ -413,6 +415,23 @@ export default function HomeView({
             tone="error"
             secondaryLabel="Entendido"
             onSecondary={dismissLogoutError}
+          />
+        )}
+
+        {geoNotice && (
+          <StatusBlurOverlay
+            icon={
+              geoNotice.type === 'apoyo' ? (
+                <MaterialIcon name="swap_horiz" size={32} fill={1} color="rgb(0, 31, 71)" />
+              ) : (
+                <MaterialIcon name="location_off" size={32} fill={1} color="#D97706" />
+              )
+            }
+            title={geoNotice.title}
+            subtitle={geoNotice.message}
+            tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
+            retryLabel={geoNotice.buttonLabel}
+            onRetry={confirmGeoNotice}
           />
         )}
 
@@ -861,6 +880,23 @@ export default function HomeView({
           secondaryLabel="Cancelar"
           onSecondary={dismissLogoutConfirm}
           secondaryVariant="button"
+        />
+      )}
+
+      {geoNotice && (
+        <StatusBlurOverlay
+          icon={
+            geoNotice.type === 'apoyo' ? (
+              <MaterialIcon name="swap_horiz" size={32} fill={1} color="rgb(0, 31, 71)" />
+            ) : (
+              <MaterialIcon name="location_off" size={32} fill={1} color="#D97706" />
+            )
+          }
+          title={geoNotice.title}
+          subtitle={geoNotice.message}
+          tone={geoNotice.type === 'apoyo' ? 'neutral' : 'warning'}
+          retryLabel={geoNotice.buttonLabel}
+          onRetry={confirmGeoNotice}
         />
       )}
 
